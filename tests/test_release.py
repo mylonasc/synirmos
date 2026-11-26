@@ -65,7 +65,31 @@ def test_distribution_rename_does_not_publish_an_unchanged_version():
 
 
 def git(root, *args):
-    return subprocess.check_output(["git", *args], cwd=root).decode().strip()
+    return (
+        subprocess.check_output(["git", *args], cwd=root, env=release.git_environment())
+        .decode()
+        .strip()
+    )
+
+
+def test_hook_environment_cannot_redirect_temporary_git_repositories(tmp_path, monkeypatch):
+    foreign = tmp_path / "foreign.git"
+    foreign.mkdir()
+    marker = foreign / "config"
+    marker.write_text("[core]\n\tbare = true\n")
+    monkeypatch.setenv("GIT_DIR", str(foreign))
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "wrong-worktree"))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "foreign-index"))
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    git(repository, "init", "-q")
+    metadata = project("0.1.0")
+    (repository / "pyproject.toml").write_bytes(metadata)
+    before = commit(repository, "isolated")
+    assert release.previous_project(repository, before) == metadata
+    assert (repository / ".git").is_dir()
+    assert marker.read_text() == "[core]\n\tbare = true\n"
+    assert not (tmp_path / "foreign-index").exists()
 
 
 def commit(root, message):

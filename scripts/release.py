@@ -23,6 +23,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "synirmos"
 
 
+def git_environment() -> dict[str, str]:
+    """Do not let a caller's hook/worktree environment redirect Git commands."""
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
 def release_version(current: bytes, previous: bytes | None) -> str | None:
     """Return a new public version, skip unchanged versions, reject downgrades."""
     project = tomllib.loads(current.decode())["project"]
@@ -48,13 +53,14 @@ def previous_project(root: Path, before: str) -> bytes | None:
         raise ValueError("before must be a full Git commit ID")
     if set(before) == {"0"}:
         return None  # First push: the initial project version is a release candidate.
-    subprocess.run(["git", "cat-file", "-e", f"{before}^{{commit}}"], cwd=root, check=True)
+    env = git_environment()
+    subprocess.run(["git", "cat-file", "-e", f"{before}^{{commit}}"], cwd=root, env=env, check=True)
     paths = subprocess.check_output(
-        ["git", "ls-tree", "--name-only", before, "--", "pyproject.toml"], cwd=root
+        ["git", "ls-tree", "--name-only", before, "--", "pyproject.toml"], cwd=root, env=env
     )
     if not paths.strip():
         return None
-    return subprocess.check_output(["git", "show", f"{before}:pyproject.toml"], cwd=root)
+    return subprocess.check_output(["git", "show", f"{before}:pyproject.toml"], cwd=root, env=env)
 
 
 def validate_artifacts(directory: Path, version: str) -> None:
