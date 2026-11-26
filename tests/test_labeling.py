@@ -6,12 +6,15 @@ registry, and work items in-process with fixed timestamps.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from repo_history.analysis import DecisionStatus
-from repo_history.content import (
+from synirmos.core.analysis import DecisionStatus
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import LabelingSettings
+from synirmos.core.protocols import Labeler
+from synirmos.processing.content import (
     CodeDocument,
     CodeSymbol,
     ImportRecord,
@@ -21,9 +24,7 @@ from repo_history.content import (
     ParsedContent,
     SnapshotContent,
 )
-from repo_history.github import GitHubWorkItem, RevisionAvailability
-from repo_history.ids import IdFactory
-from repo_history.labeling import (
+from synirmos.processing.labeling import (
     ContentFeatures,
     DeterministicLabeler,
     TopicRegistry,
@@ -31,10 +32,9 @@ from repo_history.labeling import (
     extract_work_item_features,
     seed_registry,
 )
-from repo_history.models import LabelingSettings
-from repo_history.protocols import Labeler
+from synirmos.sources.github import GitHubWorkItem, RevisionAvailability
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 HORIZON_ONE = datetime(2026, 9, 14, 12, 0, tzinfo=UTC)
 HORIZON_TWO = datetime(2026, 9, 14, 18, 0, tzinfo=UTC)
@@ -60,14 +60,23 @@ def markdown_content() -> ParsedContent:
         markdown=MarkdownDocument(
             headings=(
                 MarkdownHeading(
-                    level=1, text="Graph Neural Networks", slug="graph-neural-networks",
-                    line=1, end_line=1, offset=0, end_offset=22,
+                    level=1,
+                    text="Graph Neural Networks",
+                    slug="graph-neural-networks",
+                    line=1,
+                    end_line=1,
+                    offset=0,
+                    end_offset=22,
                 ),
             ),
             links=(
                 MarkdownLink(
-                    kind="link", text="guide", target="docs/training-guide.md",
-                    line=3, offset=0, end_offset=20,
+                    kind="link",
+                    text="guide",
+                    target="docs/training-guide.md",
+                    line=3,
+                    offset=0,
+                    end_offset=20,
                 ),
             ),
         ),
@@ -88,22 +97,23 @@ def code_content() -> ParsedContent:
         sha256="t" * 64,
         code=CodeDocument(
             language="python",
-            imports=(
-                ImportRecord(kind="import", module="torch_geometric.nn", names=(), line=1),
-            ),
+            imports=(ImportRecord(kind="import", module="torch_geometric.nn", names=(), line=1),),
             symbols=(
                 CodeSymbol(
-                    symbol_id="sym:1", kind="class", name="GraphConv",
-                    qualname="models.GraphConv", line=1, column=0, end_line=8,
+                    symbol_id="sym:1",
+                    kind="class",
+                    name="GraphConv",
+                    qualname="models.GraphConv",
+                    line=1,
+                    column=0,
+                    end_line=8,
                 ),
             ),
         ),
     )
 
 
-def snapshot(
-    path: str, language: str | None = None, module: str | None = None
-) -> SnapshotContent:
+def snapshot(path: str, language: str | None = None, module: str | None = None) -> SnapshotContent:
     return SnapshotContent(
         snapshot_id=f"snap:{path}",
         commit_sha="c" * 40,
@@ -157,11 +167,13 @@ def registry_with(*names: str, at: datetime = NOW) -> TopicRegistry:
 
 def test_snapshot_features_are_deterministic_and_never_execute_code():
     first = extract_snapshot_features(
-        snapshot("docs/guide.md", language="markdown"), markdown_content(),
+        snapshot("docs/guide.md", language="markdown"),
+        markdown_content(),
         subject_id="snap:docs/guide.md",
     )
     second = extract_snapshot_features(
-        snapshot("docs/guide.md", language="markdown"), markdown_content(),
+        snapshot("docs/guide.md", language="markdown"),
+        markdown_content(),
         subject_id="snap:docs/guide.md",
     )
 
@@ -187,9 +199,7 @@ def test_code_features_cover_language_module_imports_and_symbols():
 
 
 def test_missing_content_yields_path_only_features():
-    features = extract_snapshot_features(
-        snapshot("README.md"), None, subject_id="snap:README.md"
-    )
+    features = extract_snapshot_features(snapshot("README.md"), None, subject_id="snap:README.md")
 
     assert features.path_tokens == ("readme", "md")
     assert features.heading_tokens == ()
@@ -231,7 +241,10 @@ def test_registry_rejects_collisions_and_blank_names():
         registry.register("  ", at=NOW, created_by="test", ids=ids())
 
     grown, record = registry.register(
-        "sparse-training", at=NOW, created_by="test", ids=ids(),
+        "sparse-training",
+        at=NOW,
+        created_by="test",
+        ids=ids(),
         description="sparse training graphs",
     )
     assert grown.version == 2
@@ -250,18 +263,27 @@ def test_registered_descriptions_make_proposals_reusable():
     )
     registry = seed_registry(at=NOW)
     first = labeler.assign(
-        features, registry, subject_id=features.subject_id,
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        features,
+        registry,
+        subject_id=features.subject_id,
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
     assert first.action == "propose"
 
     grown, record = registry.register(
-        first.result.value["proposed_name"], at=NOW, created_by="run-1",
-        ids=ids(), description=features.text(),
+        first.result.value["proposed_name"],
+        at=NOW,
+        created_by="run-1",
+        ids=ids(),
+        description=features.text(),
     )
     second = labeler.assign(
-        features, grown, subject_id=features.subject_id,
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        features,
+        grown,
+        subject_id=features.subject_id,
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
     assert second.action == "reuse"
     assert second.topic_id == record.topic_id
@@ -295,9 +317,7 @@ def test_registry_merge_supersedes_without_deleting():
     )
 
     assert merged.version == 3
-    assert record.supersedes == tuple(
-        sorted(topic.topic_id for topic in registry.topics)
-    )
+    assert record.supersedes == tuple(sorted(topic.topic_id for topic in registry.topics))
     assert merged.lookup("graph-networks").merged_into == record.topic_id
     assert [topic.topic_id for topic in merged.active_topics()] == [record.topic_id]
     with pytest.raises(ValueError):
@@ -331,13 +351,14 @@ def test_retrieval_ranks_the_matching_topic_first():
 def test_retrieval_is_empty_without_candidates_or_vocabulary():
     labeler = DeterministicLabeler()
 
-    assert labeler.retrieve(
-        ContentFeatures(subject_id="s", title_tokens=("graph",)),
-        seed_registry(at=NOW),
-    ) == ()
-    assert labeler.retrieve(
-        ContentFeatures(subject_id="s"), registry_with("graph")
-    ) == ()
+    assert (
+        labeler.retrieve(
+            ContentFeatures(subject_id="s", title_tokens=("graph",)),
+            seed_registry(at=NOW),
+        )
+        == ()
+    )
+    assert labeler.retrieve(ContentFeatures(subject_id="s"), registry_with("graph")) == ()
 
 
 def test_decide_reuses_a_strong_match_with_attribution():
@@ -350,9 +371,7 @@ def test_decide_reuses_a_strong_match_with_attribution():
     )
     candidates = labeler.retrieve(features, registry)
 
-    decision, action, alias_of, confidence, matched = labeler.decide(
-        features, candidates, registry
-    )
+    decision, action, alias_of, confidence, matched = labeler.decide(features, candidates, registry)
 
     assert action == "reuse"
     assert decision is not None
@@ -395,9 +414,7 @@ def test_decide_suggests_aliases_for_near_matches():
     candidates = labeler.retrieve(features, registry)
     assert candidates
 
-    decision, action, alias_of, confidence, matched = labeler.decide(
-        features, candidates, registry
-    )
+    decision, action, alias_of, confidence, matched = labeler.decide(features, candidates, registry)
 
     assert action == "alias"
     assert decision is not None and decision.proposed_name
@@ -425,16 +442,25 @@ def test_assign_wraps_decisions_in_horizon_scoped_envelopes():
     )
 
     first = labeler.assign(
-        features, registry, subject_id="workitem:github:10",
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        features,
+        registry,
+        subject_id="workitem:github:10",
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
     repeat = labeler.assign(
-        features, registry, subject_id="workitem:github:10",
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        features,
+        registry,
+        subject_id="workitem:github:10",
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
     later = labeler.assign(
-        features, registry, subject_id="workitem:github:10",
-        run_id="run-1", info_horizon=HORIZON_TWO,
+        features,
+        registry,
+        subject_id="workitem:github:10",
+        run_id="run-1",
+        info_horizon=HORIZON_TWO,
     )
 
     assert first == repeat  # repeatable without a model
@@ -469,8 +495,11 @@ def test_growing_the_vocabulary_does_not_relabel_old_decisions():
         heading_tokens=("graph", "neural", "networks"),
     )
     original = labeler.assign(
-        docs, registry_v1, subject_id="snap:docs/guide.md",
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        docs,
+        registry_v1,
+        subject_id="snap:docs/guide.md",
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
 
     registry_v2, proposed = registry_v1.register(
@@ -479,13 +508,18 @@ def test_growing_the_vocabulary_does_not_relabel_old_decisions():
     registry_v3, merged = registry_v2.merge(
         [topic.topic_id for topic in registry_v2.topics],
         "all-docs",
-        at=HORIZON_TWO, created_by="run-1", ids=ids(),
+        at=HORIZON_TWO,
+        created_by="run-1",
+        ids=ids(),
     )
 
     assert original.result.value["registry_version"] == 1
     replayed = labeler.assign(
-        docs, registry_v1, subject_id="snap:docs/guide.md",
-        run_id="run-1", info_horizon=HORIZON_ONE,
+        docs,
+        registry_v1,
+        subject_id="snap:docs/guide.md",
+        run_id="run-1",
+        info_horizon=HORIZON_ONE,
     )
     assert replayed == original  # the old registry version decides identically
     assert merged.supersedes  # merges are tracked, not rewritten
@@ -521,9 +555,7 @@ def test_labeler_satisfies_the_labeler_protocol():
     assignments = labeler.label(
         text="sparse training fails",
         context={
-            "features": ContentFeatures(
-                subject_id="s", title_tokens=("sparse", "training")
-            ),
+            "features": ContentFeatures(subject_id="s", title_tokens=("sparse", "training")),
             "registry": registry_with("sparse-training"),
             "subject_id": "s",
             "run_id": "run-1",
@@ -544,13 +576,14 @@ def test_labeling_settings_have_thresholds_and_load_from_toml():
     assert settings.alias_threshold == 0.35
     assert settings.min_score == 0.1
     assert settings.top_k == 5
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         LabelingSettings(alias_threshold=0.9, reuse_threshold=0.5)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         LabelingSettings(min_score=0.9)
 
-    from repo_history.config import load_config
+    from synirmos.core.config import load_config
+    from tests.support import TEST_CONFIG
 
-    config = load_config()
+    config = load_config(TEST_CONFIG)
     assert config.labeling.reuse_threshold == 0.5
     assert config.labeling.top_k == 5

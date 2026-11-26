@@ -6,8 +6,8 @@ import importlib
 
 import pytest
 
-from repo_history import capabilities
-from repo_history.capabilities import (
+from synirmos.storage import capabilities
+from synirmos.storage.capabilities import (
     Capability,
     CapabilityError,
     check_capabilities,

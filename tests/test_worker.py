@@ -7,30 +7,29 @@ network, no models, no database.
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from repo_history.analysis import DecisionStatus
-from repo_history.budgets import BudgetExceeded, BudgetLedger
-from repo_history.enrichment import LLMSettings
-from repo_history.ids import IdFactory
-from repo_history.labeling import ContentFeatures, seed_registry
-from repo_history.models import Budgets
-from repo_history.worker import (
+from synirmos.core.analysis import DecisionStatus
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import Budgets
+from synirmos.processing.enrichment import LLMSettings
+from synirmos.processing.labeling import ContentFeatures, seed_registry
+from synirmos.runtime.worker import (
     JOB_ENVELOPE_VERSION,
     JobQueue,
-    WorkJob,
     WorkerPool,
+    WorkJob,
     charge_usage,
     collect_results,
     make_job_id,
     run_job_file,
 )
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 EARLY = datetime(2026, 9, 14, 12, 0, tzinfo=UTC)
 LATE = datetime(2026, 9, 14, 18, 0, tzinfo=UTC)
@@ -49,7 +48,10 @@ def features(subject: str = "workitem:github:10") -> ContentFeatures:
 def registry_at(moment: datetime):
     registry = seed_registry(at=moment)
     registry, _ = registry.register(
-        "sparse-training", at=moment, created_by="test", ids=IdFactory(REPOSITORY_URL),
+        "sparse-training",
+        at=moment,
+        created_by="test",
+        ids=IdFactory(REPOSITORY_URL),
         description="sparse training graphs convolution",
     )
     return registry
@@ -69,8 +71,12 @@ def job(
         work_item_number=number,
         subject_text="Training fails on sparse graphs.",
         features=features(f"workitem:github:{number}"),
-        candidates=({"topic_id": IdFactory(REPOSITORY_URL).topic("sparse-training"),
-                     "name": "sparse-training"},),
+        candidates=(
+            {
+                "topic_id": IdFactory(REPOSITORY_URL).topic("sparse-training"),
+                "name": "sparse-training",
+            },
+        ),
         registry=registry_at(horizon),
         info_horizon=horizon,
         run_id=RUN_ID,
@@ -125,8 +131,8 @@ def test_completed_jobs_are_returned_as_is(tmp_path):
 
 
 def _result(job_id: str):
-    from repo_history.worker import WorkResult
-    from repo_history.analysis import AnalysisResult, Provenance
+    from synirmos.core.analysis import AnalysisResult, Provenance
+    from synirmos.runtime.worker import WorkResult
 
     return WorkResult(
         job_id=job_id,
@@ -251,18 +257,13 @@ def test_out_of_order_completion_keeps_horizons(tmp_path):
 
     assert [result.job_id for result in merged] == [early_id, late_id]
     assert [result.info_horizon for result in merged] == [EARLY, LATE]
-    assert all(
-        result.required.provenance.info_horizon == result.info_horizon
-        for result in merged
-    )
+    assert all(result.required.provenance.info_horizon == result.info_horizon for result in merged)
 
 
 def test_optional_llm_failure_keeps_required_completion(tmp_path):
     queue = JobQueue(tmp_path / "queue")
     bad_llm = llm_settings(provider="mystery", model="m-1")
-    job_id = queue.submit(
-        job(10, method="deterministic+llm", llm=bad_llm)
-    )
+    job_id = queue.submit(job(10, method="deterministic+llm", llm=bad_llm))
     pool = WorkerPool(queue, max_workers=1, task_timeout_seconds=300.0)
     pool.run_pending()
 
@@ -292,7 +293,9 @@ def test_optional_llm_success_reports_usage_for_the_ledger(tmp_path):
         job(10, method="deterministic+llm", llm=llm_settings(), fake_replies=(reply,))
     )
     pool = WorkerPool(
-        queue, max_workers=1, task_timeout_seconds=300.0,
+        queue,
+        max_workers=1,
+        task_timeout_seconds=300.0,
         cache_dir=tmp_path / "llm-cache",
     )
     pool.run_pending()

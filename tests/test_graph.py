@@ -6,18 +6,21 @@ under ``tmp_path``.  No network, no Git CLI, no model credentials.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from repo_history.git import (
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import GraphSettings, TimeWindow
+from synirmos.core.protocols import GraphSink as GraphSinkProtocol
+from synirmos.sources.git import (
     BranchObservation,
     CommitRecord,
     GitIndex,
     GitSelection,
     TreeEntryRecord,
 )
-from repo_history.github import (
+from synirmos.sources.github import (
     GitHubDiscovery,
     GitHubWorkItem,
     HierarchyEdge,
@@ -26,7 +29,7 @@ from repo_history.github import (
     PullRequestEvidence,
     RevisionAvailability,
 )
-from repo_history.graph import (
+from synirmos.storage.graph import (
     CHILD_OF,
     HAS_LABEL,
     MEMBER_OF,
@@ -41,11 +44,8 @@ from repo_history.graph import (
     map_discovery,
     map_git_index,
 )
-from repo_history.ids import IdFactory
-from repo_history.models import GraphSettings, TimeWindow
-from repo_history.protocols import GraphSink as GraphSinkProtocol
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 T0 = datetime(2026, 9, 14, 9, 0, tzinfo=UTC)
 DAY_ONE = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
@@ -85,7 +85,9 @@ def selection(
     selected: tuple[CommitRecord, ...], boundary: tuple[CommitRecord, ...] = ()
 ) -> GitSelection:
     return GitSelection(
-        anchor="a" * 40, window=WINDOW, selected_commits=selected,
+        anchor="a" * 40,
+        window=WINDOW,
+        selected_commits=selected,
         boundary_commits=boundary,
     )
 
@@ -193,12 +195,14 @@ def test_map_git_index_covers_commits_snapshots_files_branches():
     parents = [edge for edge in mapped.relationships if edge.edge_type == PARENT_COMMIT]
     assert len(parents) == 1
     assert (parents[0].source, parents[0].target) == (
-        ids().commit(tip.sha), ids().commit(boundary.sha),
+        ids().commit(tip.sha),
+        ids().commit(boundary.sha),
     )
 
     members = [edge for edge in mapped.relationships if edge.edge_type == MEMBER_OF]
     assert {edge.target for edge in members} == {
-        ids().commit(tip.sha), ids().commit(boundary.sha),
+        ids().commit(tip.sha),
+        ids().commit(boundary.sha),
     }
     assert all(edge.source.startswith("snap:") for edge in members)
     files = [edge for edge in mapped.relationships if edge.edge_type == OF_FILE]
@@ -280,14 +284,16 @@ def test_map_discovery_covers_items_labels_hierarchy_and_merges():
     labels = [edge for edge in mapped.relationships if edge.edge_type == HAS_LABEL]
     assert len(labels) == 1
     assert (labels[0].source, labels[0].target) == (
-        ids().work_item("github", 10), ids().provider_label("github", "bug"),
+        ids().work_item("github", 10),
+        ids().provider_label("github", "bug"),
     )
     assert labels[0].valid_from == NOW
 
     children = [edge for edge in mapped.relationships if edge.edge_type == CHILD_OF]
     assert len(children) == 1
     assert (children[0].source, children[0].target) == (
-        ids().work_item("github", 10), ids().work_item("github", 11),
+        ids().work_item("github", 10),
+        ids().work_item("github", 11),
     )
 
     merges = [edge for edge in mapped.relationships if edge.edge_type == MERGED_AS]
@@ -332,9 +338,7 @@ def test_sink_round_trip_with_provenance(tmp_path):
     assert sink.label_counts()["Commit"] == 2
     assert sink.label_counts()["Snapshot"] == 2
     assert sink.edge_counts()[PARENT_COMMIT] == 1
-    edge_id = next(
-        edge.edge_id for edge in mapped.relationships if edge.edge_type == PARENT_COMMIT
-    )
+    edge_id = next(edge.edge_id for edge in mapped.relationships if edge.edge_type == PARENT_COMMIT)
     assert sink.edge_as_of(edge_id, DAY_TWO)["type"] == PARENT_COMMIT
     sink.close()
 
@@ -352,7 +356,8 @@ def test_duplicate_ingestion_is_idempotent(tmp_path):
     relationships = sink.write_relationships(mapped.relationships, analysis_run_id=RUN_ID)
 
     assert (first.entities_written, first.entities_duplicate) == (
-        len(mapped.entities), 0,
+        len(mapped.entities),
+        0,
     )
     assert second.entities_written == 0
     assert second.entities_duplicate == len(mapped.entities)
@@ -400,9 +405,7 @@ def test_correction_retains_old_evidence(tmp_path):
     )
     history = sink.node_history(write.logical_id)
     assert len(history) == 1
-    sink.correct_entity(
-        closed, supersedes_version_id=history[0].version_id, valid_from=DAY_TWO
-    )
+    sink.correct_entity(closed, supersedes_version_id=history[0].version_id, valid_from=DAY_TWO)
 
     assert sink.node_as_of(write.logical_id, DAY_ONE)["state"] == "open"
     assert sink.node_as_of(write.logical_id, DAY_TWO)["state"] == "closed"
@@ -475,10 +478,7 @@ def test_current_projection_is_rebuildable_from_the_same_batch(tmp_path):
         sink.write_entities(mapped.entities, analysis_run_id=RUN_ID)
         sink.write_relationships(mapped.relationships, analysis_run_id=RUN_ID)
         projections.append(
-            {
-                entity.logical_id: sink.current_node(entity.logical_id)
-                for entity in mapped.entities
-            }
+            {entity.logical_id: sink.current_node(entity.logical_id) for entity in mapped.entities}
         )
         sink.close()
 
@@ -506,7 +506,9 @@ def test_branch_reachability_through_parent_commits(tmp_path):
                 frontier.append(parent)
 
     assert reachable == {
-        ids().commit(tip.sha), ids().commit(middle.sha), ids().commit(root.sha),
+        ids().commit(tip.sha),
+        ids().commit(middle.sha),
+        ids().commit(root.sha),
     }
     branch_id = ids().branch("main")
     assert sink.neighbors(branch_id, TIP_OF, direction="out") == [ids().commit(tip.sha)]
@@ -553,16 +555,17 @@ def test_graph_settings_have_bounded_defaults_and_load_from_toml():
     assert settings.map_size_bytes == 256 * 1024 * 1024
     assert settings.backend_options() == {"map_size": 256 * 1024 * 1024}
     assert GraphSettings(backend="pyrex").backend_options() == {}
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         GraphSettings(path="  ")
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         GraphSettings(backend="sqlite")
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         GraphSettings(map_size_bytes=1024)
 
-    from repo_history.config import load_config
+    from synirmos.core.config import load_config
+    from tests.support import TEST_CONFIG
 
-    config = load_config()
+    config = load_config(TEST_CONFIG)
     assert config.graph.path == "data/graph"
     assert config.graph.backend == "lmdb"
     assert config.graph.overwrite is False

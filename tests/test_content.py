@@ -7,24 +7,24 @@ executed.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from repo_history.budgets import BudgetExceeded, BudgetLedger
-from repo_history.content import (
-    ContentExtractor,
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.models import Budgets, ContentSettings, GitSettings
+from synirmos.processing.content import (
     PARSER_VERSION,
+    ContentExtractor,
     detect_language,
     media_type_for,
     module_name,
     summarize_content,
 )
-from repo_history.git import GitIndex
-from repo_history.models import Budgets, ContentSettings, GitSettings
-from test_git import DAY_ONE, DAY_TWO, OUTSIDE, REPOSITORY_URL, WINDOW, GitFixture
+from synirmos.sources.git import GitIndex
+from tests.test_git import DAY_ONE, OUTSIDE, REPOSITORY_URL, WINDOW, GitFixture
 
-UTC = timezone.utc
+UTC = UTC
 
 MARKDOWN = (
     "# Title\n"
@@ -84,9 +84,7 @@ def _extract(
 
 def _snapshot(index, path: str, *, baseline: bool = False):
     return next(
-        item
-        for item in index.snapshots
-        if item.path == path and item.is_baseline is baseline
+        item for item in index.snapshots if item.path == path and item.is_baseline is baseline
     )
 
 
@@ -135,9 +133,7 @@ def test_markdown_headings_links_code_and_sections_are_source_addressable(
     ]
     for link in markdown.links:
         marker = "![" if link.kind == "image" else "["
-        assert MARKDOWN[link.offset : link.end_offset].startswith(
-            f"{marker}{link.text}]"
-        )
+        assert MARKDOWN[link.offset : link.end_offset].startswith(f"{marker}{link.text}]")
 
     assert len(markdown.code_blocks) == 1
     block = markdown.code_blocks[0]
@@ -214,9 +210,7 @@ def test_python_ast_symbols_imports_and_module_features(fixture: GitFixture):
     assert code.docstring == "Module doc."
     assert code.syntax_error is None
 
-    assert [
-        (symbol.kind, symbol.qualname, symbol.line) for symbol in code.symbols
-    ] == [
+    assert [(symbol.kind, symbol.qualname, symbol.line) for symbol in code.symbols] == [
         ("class", "Thing", 6),
         ("method", "Thing.make", 10),
         ("async-method", "Thing.run", 13),
@@ -234,8 +228,7 @@ def test_python_ast_symbols_imports_and_module_features(fixture: GitFixture):
     assert len({symbol.symbol_id for symbol in code.symbols}) == 4
 
     assert [
-        (record.kind, record.module, record.names, record.level)
-        for record in code.imports
+        (record.kind, record.module, record.names, record.level) for record in code.imports
     ] == [
         ("import", None, ("os",), 0),
         ("from", "typing", ("Any as A", "Optional"), 0),
@@ -308,9 +301,7 @@ def test_binary_oversized_undecodable_and_unavailable_statuses(fixture: GitFixtu
         at=DAY_ONE,
     )
     index = _index(fixture, commit)
-    _, content_index = _extract(
-        fixture, index, settings=ContentSettings(max_file_bytes=1_024)
-    )
+    _, content_index = _extract(fixture, index, settings=ContentSettings(max_file_bytes=1_024))
 
     binary = _snapshot(content_index, "logo.png")
     assert binary.status == "unsupported"
@@ -361,11 +352,7 @@ def test_binary_oversized_undecodable_and_unavailable_statuses(fixture: GitFixtu
     assert unavailable.status == "unavailable"
     assert unavailable.content_id is not None
     assert any(gap.code == "content-unavailable" for gap in unavailable_index.gaps)
-    assert any(
-        gap.retryable
-        for gap in unavailable_index.gaps
-        if gap.code == "content-unavailable"
-    )
+    assert any(gap.retryable for gap in unavailable_index.gaps if gap.code == "content-unavailable")
 
 
 def test_lfs_pointers_are_explicitly_unsupported(fixture: GitFixture):
@@ -430,14 +417,10 @@ def test_baseline_sections_come_from_the_historical_commit_not_head(
     assert baseline.content_id != selected.content_id
 
     baseline_sections = [
-        section
-        for section in content_index.sections
-        if section.commit_sha == before
+        section for section in content_index.sections if section.commit_sha == before
     ]
     selected_sections = [
-        section
-        for section in content_index.sections
-        if section.commit_sha == inside
+        section for section in content_index.sections if section.commit_sha == inside
     ]
     assert [section.heading for section in baseline_sections] == ["Old"]
     assert [section.heading for section in selected_sections] == ["New"]
@@ -471,9 +454,7 @@ def test_section_symbol_and_import_limits_are_observable(fixture: GitFixture):
     settings = ContentSettings(max_sections=2, max_symbols=2, max_imports=2)
     _, content_index = _extract(fixture, _index(fixture, commit), settings=settings)
 
-    markdown_content = content_index.content_for(
-        _snapshot(content_index, "many.md").snapshot_id
-    )
+    markdown_content = content_index.content_for(_snapshot(content_index, "many.md").snapshot_id)
     assert markdown_content is not None and markdown_content.markdown is not None
     assert len(markdown_content.markdown.headings) == 2
     assert len(markdown_content.markdown.sections) == 2
@@ -483,9 +464,7 @@ def test_section_symbol_and_import_limits_are_observable(fixture: GitFixture):
     ] == [("One", 1, 4), ("Two", 5, 8)]
     assert markdown_content.markdown.sections_truncated is True
 
-    python_content = content_index.content_for(
-        _snapshot(content_index, "many.py").snapshot_id
-    )
+    python_content = content_index.content_for(_snapshot(content_index, "many.py").snapshot_id)
     assert python_content is not None and python_content.code is not None
     assert len(python_content.code.symbols) == 2
     assert python_content.code.symbols_truncated is True

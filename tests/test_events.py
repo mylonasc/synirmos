@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
 
-from repo_history.events import EventBatch, EventKind, IngestEvent
-from repo_history.ids import stable_id
+from synirmos.core.events import EventBatch, EventKind, IngestEvent
+from synirmos.core.ids import stable_id
 
-UTC = timezone.utc
+UTC = UTC
 EVENT_TIME = datetime(2026, 9, 14, 20, 15, 31, tzinfo=UTC)
 
 

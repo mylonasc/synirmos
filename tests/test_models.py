@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
 
-from repo_history.models import (
+from synirmos.core.models import (
     Budgets,
     ContentSettings,
     CoverageGap,
@@ -20,7 +20,7 @@ from repo_history.models import (
     TimeWindow,
 )
 
-UTC = timezone.utc
+UTC = UTC
 START = datetime(2026, 9, 13, tzinfo=UTC)
 END = datetime(2026, 9, 15, tzinfo=UTC)
 

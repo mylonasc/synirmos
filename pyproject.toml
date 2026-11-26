@@ -1,11 +1,11 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12.21,<0.13"]
+build-backend = "uv_build"
 
 [project]
-name = "repo-history"
+name = "synirmos"
 version = "0.1.0"
-description = "Temporal repository-history indexing example for GestaltDB"
+description = "Synirmos: evidence-backed temporal repository-history analysis"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
@@ -19,15 +19,35 @@ dependencies = [
   "scikit-learn>=1.4,<2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/mylonasc/synirmos"
+Repository = "https://github.com/mylonasc/synirmos"
+Issues = "https://github.com/mylonasc/synirmos/issues"
+
 [project.optional-dependencies]
 openai = ["langchain-openai>=0.2,<2"]
 test = ["pytest>=8,<10"]
 
 [dependency-groups]
-dev = ["pytest>=8,<10"]
+dev = [
+  "packaging>=24,<27",
+  "pyyaml>=6,<7",
+  "pytest>=8,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.14,<0.15",
+  "radon>=6,<7",
+  "pre-commit>=4,<5",
+]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/repo_history"]
+[tool.uv]
+package = true
+
+[tool.uv.build-backend]
+source-include = [
+  "tests/**", "scripts/**", "docs/**", "configs/repository.toml",
+  ".github/workflows/**", "PROJECT_SPEC.md", "CHANGELOG.md", "LICENSE",
+  "uv.lock", ".python-version",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
@@ -35,4 +55,27 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["repo_history"]
+source = ["synirmos"]
+branch = true
+omit = ["src/synirmos/*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
+
+[tool.coverage.html]
+directory = "reports/coverage"
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "C90"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 30

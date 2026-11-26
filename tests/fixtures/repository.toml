@@ -1,0 +1,13 @@
+[repository]
+owner = "acme"
+name = "project"
+url = "https://github.com/acme/project.git"
+anchor = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+allowed_work_items = [10, 11, 12]
+
+[repository.window]
+start = "2026-09-13T00:00:00Z"
+end = "2026-09-15T00:00:00Z"
+
+[budgets]
+max_commits = 32

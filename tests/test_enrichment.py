@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import itertools
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from repo_history.budgets import BudgetLedger
-from repo_history.enrichment import (
+from synirmos.core.analysis import DecisionStatus
+from synirmos.core.budgets import BudgetLedger
+from synirmos.core.models import Budgets, CoverageStatus, LLMSettings
+from synirmos.processing.enrichment import (
     Enricher,
     EnrichmentCache,
     EnrichmentConsentError,
@@ -29,10 +31,8 @@ from repo_history.enrichment import (
     gap_for_unavailable_history,
     require_consent,
 )
-from repo_history.analysis import DecisionStatus
-from repo_history.models import Budgets, CoverageStatus, LLMSettings
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 HORIZON = datetime(2026, 9, 14, 12, 0, tzinfo=UTC)
 CANDIDATES = ({"topic_id": "topic:sparse", "name": "sparse-training"},)
@@ -54,9 +54,7 @@ def fake_model(*contents: str, usage: dict | None = None) -> GenericFakeChatMode
 
 
 def cycling_model(*contents: str) -> GenericFakeChatModel:
-    return GenericFakeChatModel(
-        messages=itertools.cycle([AIMessage(content=c) for c in contents])
-    )
+    return GenericFakeChatModel(messages=itertools.cycle([AIMessage(content=c) for c in contents]))
 
 
 class NamedFakeModel(GenericFakeChatModel):
@@ -77,9 +75,7 @@ def enricher(
     settings_data.update(settings_overrides)
     settings = LLMSettings(**settings_data)
     ledger = BudgetLedger(budgets or Budgets())
-    cache = EnrichmentCache(
-        cache_path if cache_path is not None else tmp_path / "cache.json"
-    )
+    cache = EnrichmentCache(cache_path if cache_path is not None else tmp_path / "cache.json")
     return (
         Enricher(chat_model, settings, ledger=ledger, cache=cache, run_id="run-1"),
         ledger,
@@ -132,9 +128,7 @@ def test_capability_check_rejects_non_chat_models():
 
 
 def test_build_chat_model_rejects_unknown_providers():
-    settings = LLMSettings(
-        enabled=True, privacy_consent=True, provider="mystery", model="m-1"
-    )
+    settings = LLMSettings(enabled=True, privacy_consent=True, provider="mystery", model="m-1")
     with pytest.raises(EnrichmentModelError):
         build_chat_model(settings)
 
@@ -197,27 +191,36 @@ def test_cache_invalidated_by_prompt_context_or_model(tmp_path):
     cache_path = tmp_path / "cache.json"
     first, _ = enricher(fake_model(reuse_payload()), tmp_path, cache_path=cache_path)
     first.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert first.invocations == 1
 
     changed_prompt, _ = enricher(
-        fake_model(reuse_payload()), tmp_path, cache_path=cache_path,
+        fake_model(reuse_payload()),
+        tmp_path,
+        cache_path=cache_path,
         prompt_version="v2",
     )
     changed_prompt.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert changed_prompt.invocations == 1
 
-    changed_context, _ = enricher(
-        fake_model(reuse_payload()), tmp_path, cache_path=cache_path
-    )
+    changed_context, _ = enricher(fake_model(reuse_payload()), tmp_path, cache_path=cache_path)
     changed_context.enrich_topic(
-        subject_id="s", subject_text="dense graphs instead", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="dense graphs instead",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert changed_context.invocations == 1
 
@@ -231,8 +234,11 @@ def test_cache_invalidated_by_prompt_context_or_model(tmp_path):
         model="gpt-4.1",
     )
     changed_model.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert changed_model.invocations == 1
 
@@ -242,8 +248,11 @@ def test_invalid_output_is_retried_then_accepted(tmp_path):
     enricher_, ledger = enricher(model, tmp_path)
 
     result = enricher_.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert result.status is DecisionStatus.ACCEPTED
@@ -256,8 +265,11 @@ def test_persistently_invalid_output_abstains_without_caching(tmp_path):
     enricher_, ledger = enricher(model, tmp_path, max_attempts=2)
 
     first = enricher_.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert first.status is DecisionStatus.ABSTAINED
@@ -265,8 +277,11 @@ def test_persistently_invalid_output_abstains_without_caching(tmp_path):
     assert enricher_.invocations == 2
 
     second = enricher_.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert second.status is DecisionStatus.ABSTAINED
     assert enricher_.invocations == 4  # validation failures are not cached
@@ -278,12 +293,18 @@ def test_model_chosen_abstention_is_cached(tmp_path):
     enricher_, _ = enricher(model, tmp_path)
 
     first = enricher_.enrich_topic(
-        subject_id="s", subject_text="???", candidates=(),
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="???",
+        candidates=(),
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     second = enricher_.enrich_topic(
-        subject_id="s", subject_text="???", candidates=(),
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="???",
+        candidates=(),
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert first.status is DecisionStatus.ABSTAINED
@@ -296,8 +317,11 @@ def test_ungrounded_reuse_is_rejected_then_abstained(tmp_path):
     enricher_, _ = enricher(model, tmp_path, max_attempts=2)
 
     result = enricher_.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert result.status is DecisionStatus.ABSTAINED
@@ -306,17 +330,21 @@ def test_ungrounded_reuse_is_rejected_then_abstained(tmp_path):
 
 def test_budget_exhaustion_returns_an_explicit_envelope(tmp_path):
     model = cycling_model(reuse_payload())
-    enricher_, ledger = enricher(
-        model, tmp_path, budgets=Budgets(max_llm_requests=1)
-    )
+    enricher_, ledger = enricher(model, tmp_path, budgets=Budgets(max_llm_requests=1))
 
     first = enricher_.enrich_topic(
-        subject_id="s1", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s1",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     second = enricher_.enrich_topic(
-        subject_id="s2", subject_text="dense graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s2",
+        subject_text="dense graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert first.status is DecisionStatus.ACCEPTED
@@ -325,8 +353,11 @@ def test_budget_exhaustion_returns_an_explicit_envelope(tmp_path):
     assert ledger.exhausted.get("llm_requests")
 
     repeat = enricher_.enrich_topic(
-        subject_id="s1", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s1",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
     assert repeat.value["cached"] is True  # served without spending
 
@@ -336,8 +367,11 @@ def test_usage_metadata_is_recorded_when_reported(tmp_path):
     enricher_, ledger = enricher(model, tmp_path)
 
     result = enricher_.enrich_topic(
-        subject_id="s", subject_text="sparse graphs", candidates=CANDIDATES,
-        registry_version=1, info_horizon=HORIZON,
+        subject_id="s",
+        subject_text="sparse graphs",
+        candidates=CANDIDATES,
+        registry_version=1,
+        info_horizon=HORIZON,
     )
 
     assert result.provenance.actual_input_tokens == 7
@@ -386,9 +420,7 @@ def test_link_to_unknown_target_is_rejected(tmp_path):
             "rationale": "one link",
         }
     )
-    enricher_, _ = enricher(
-        cycling_model(payload), tmp_path, max_attempts=1
-    )
+    enricher_, _ = enricher(cycling_model(payload), tmp_path, max_attempts=1)
 
     result = enricher_.enrich_links(
         subject_id="workitem:github:10",
@@ -443,9 +475,10 @@ def test_estimate_tokens_is_deterministic_and_positive():
 
 
 def test_llm_settings_load_new_fields_from_toml():
-    from repo_history.config import load_config
+    from synirmos.core.config import load_config
+    from tests.support import TEST_CONFIG
 
-    config = load_config()
+    config = load_config(TEST_CONFIG)
     assert config.llm.prompt_version == "v1"
     assert config.llm.cache_file == "data/llm/cache.json"
 

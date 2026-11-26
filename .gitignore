@@ -5,7 +5,14 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+reports/
+dist/
+.ruff_cache/
+*.egg-info/
 
 # Recorded offline fixtures are committed intentionally.
 !tests/data/
 !tests/data/**
+!examples/tf_gnns/tests/data/
+!examples/tf_gnns/tests/data/**
+examples/tf_gnns/output/

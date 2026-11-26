@@ -1,0 +1,23 @@
+# Generic configuration template. Replace the repository and anchor before use.
+[repository]
+provider = "github"
+owner = "your-org"
+name = "your-repo"
+url = "https://github.com/your-org/your-repo.git"
+anchor = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+allowed_work_items = []
+
+[repository.window]
+start = "2026-01-01T00:00:00Z"
+end = "2026-01-02T00:00:00Z"
+
+[budgets]
+max_commits = 32
+max_work_items = 25
+max_api_requests = 100
+max_llm_requests = 0
+
+[runtime]
+data_root = "data"
+cache_dir = "data/cache"
+offline = true

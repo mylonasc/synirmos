@@ -6,7 +6,7 @@ It requires no network access or model credentials.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,9 +14,9 @@ pytest.importorskip("gestaltdb")
 
 from gestaltdb.graphdb import GraphDB, Node  # noqa: E402
 
-from repo_history.capabilities import require_capabilities  # noqa: E402
+from synirmos.storage.capabilities import require_capabilities  # noqa: E402
 
-UTC = timezone.utc
+UTC = UTC
 VALID_FROM = datetime(2026, 9, 14, 20, 15, 31, tzinfo=UTC)
 
 

@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from repo_history.analysis import (
+from synirmos.core.analysis import (
     AnalysisResult,
     DecisionStatus,
     Provenance,
     RelationshipDecision,
     TopicDecision,
 )
-from repo_history.models import EvidenceRef
+from synirmos.core.models import EvidenceRef
 
-UTC = timezone.utc
+UTC = UTC
 HORIZON = datetime(2026, 9, 14, 21, 15, 58, tzinfo=UTC)
 EVIDENCE = (
     EvidenceRef(
@@ -73,9 +73,7 @@ def test_result_identity_changes_with_horizon_or_method():
     later = AnalysisResult.create(
         provenance=_provenance(info_horizon=HORIZON.replace(hour=22)), **base
     )
-    other = AnalysisResult.create(
-        provenance=_provenance(method_version="2"), **base
-    )
+    other = AnalysisResult.create(provenance=_provenance(method_version="2"), **base)
     assert first.result_id != later.result_id
     assert first.result_id != other.result_id
 
@@ -123,13 +121,17 @@ def test_provenance_records_estimated_and_actual_usage():
 
 def test_topic_decision_requires_exactly_one_choice():
     assert TopicDecision(reuse_topic_id="topic:1", confidence=0.9, rationale="match").reuse_topic_id
-    assert TopicDecision(proposed_name="Benchmarking", confidence=0.5, rationale="new").proposed_name
+    assert TopicDecision(
+        proposed_name="Benchmarking", confidence=0.5, rationale="new"
+    ).proposed_name
     with pytest.raises(ValidationError):
         TopicDecision(confidence=0.5, rationale="neither")
     with pytest.raises(ValidationError):
         TopicDecision(
-            reuse_topic_id="topic:1", proposed_name="Benchmarking",
-            confidence=0.5, rationale="both",
+            reuse_topic_id="topic:1",
+            proposed_name="Benchmarking",
+            confidence=0.5,
+            rationale="both",
         )
     with pytest.raises(ValidationError):
         TopicDecision(proposed_name="X", confidence=1.5, rationale="bad score")

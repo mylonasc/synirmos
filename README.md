@@ -1,53 +1,198 @@
-# Synirmos — repository-history indexer
+# Synirmos
 
-Temporal repository-history example for
-[GestaltDB](https://github.com/mylonasc/gestaltdb). The demonstrator indexes a
-pinned, bounded slice of [`mylonasc/tf_gnns`](https://github.com/mylonasc/tf_gnns)
-and keeps source evidence, normalized history, and derived analysis distinct.
+**Evidence-backed repository-history analysis.**
 
-The epic specification is
-[`EPIC_01_REPO_HISTORY_EXAMPLE.md`](EPIC_01_REPO_HISTORY_EXAMPLE.md).
+Synirmos is a standalone Python framework for indexing Git history, source code,
+documentation, and GitHub work items, then tracing how they connect over time.
+It keeps source evidence, normalized events, and derived analysis distinct so
+you can inspect not just what changed, but why a label or relationship was
+assigned and what information was available at the time.
 
-These utilities were extracted from `gestaltdb-examples/repo-history` and are
-maintained in [Synirmos](https://github.com/mylonasc/synirmos). The Python
-distribution and import package remain `repo-history` and `repo_history`.
+- Select bounded history by commit anchor and time window, with historical
+  baseline snapshots and explicit coverage gaps.
+- Extract Markdown structure and Python symbols without executing repository code.
+- Capture and replay GitHub evidence for issues, pull requests, labels, and hierarchy.
+- Assign topics and resolve cross-entity links deterministically, with optional
+  LangChain-based LLM enrichment.
+- Inspect changes, work-item traces, branch containment, and topic timelines;
+  persist temporal graphs and render evidence-linked visualizations.
+
+[GestaltDB](https://github.com/mylonasc/gestaltdb) is the current temporal graph
+storage backend, not the scope of the project. Git indexing, content extraction,
+labeling, linking, and in-memory inspection can be used without opening a graph
+database. GitHub is the currently implemented work-item provider.
+
+See the [project specification](PROJECT_SPEC.md) for architecture, temporal
+semantics, safety, and scope. Both the uv/Python distribution and import package
+are named `synirmos`.
 
 ## Development
 
 ```bash
 git clone git@github.com:mylonasc/synirmos.git
 cd synirmos
-uv sync --extra test
+uv sync --locked --dev
 uv run pytest
 ```
 
-When working through the `gestaltdb-examples` submodule, use `cd repo-history`
-instead of cloning separately.
+Synirmos is a packaged uv project with a committed `uv.lock` and a Python 3.11
+development default in `.python-version`. Python 3.11–3.13 are supported.
+To use it from another uv project:
+
+```bash
+uv add "synirmos @ git+https://github.com/mylonasc/synirmos.git"
+```
 
 Importing the package does not require provider credentials. Live GitHub and LLM
-runs are opt-in. See the epic document for temporal semantics, budgets, safety,
-and coverage limitations.
+runs are opt-in. The default test suite needs no secrets or network access.
+
+Build the wheel and source distribution using uv's native backend and standard
+`src/synirmos/` layout:
+
+```bash
+uv build
+```
+
+Artifacts are written to `dist/`. No package-name overrides or extra build
+scripts are needed. See [CHANGELOG.md](CHANGELOG.md) for changes and import
+migration notes.
+
+## Local quality checks and CI
+
+```bash
+uv run python scripts/check.py          # all checks used by CI and pre-push
+uv run ruff check .                    # lint, imports, Python modernization, complexity
+uv run ruff format --check .           # formatting (omit --check to format)
+uv run pytest --cov=synirmos --cov-report=html
+uv run python scripts/metrics.py       # complexity, maintainability, source size
+uv run pre-commit install              # install pre-commit and pre-push hooks
+```
+
+Every push and pull request runs the full checks on Python 3.11, 3.12, and 3.13
+via [GitHub Actions](.github/workflows/quality.yml). Lint and formatting must
+pass, combined statement/branch coverage must remain at least **90%**, and
+function cyclomatic complexity is capped at **30** (the initial ceiling for
+existing code, not a target for new functions). CI also builds the distribution,
+smoke-tests an installed wheel outside the source tree, and runs the example's
+separate offline regression test. Live GitHub/LLM runs are never part of CI.
+
+Reports are generated under `reports/`: coverage XML/HTML, per-module
+maintainability and complexity JSON, and a Markdown summary. CI uploads these
+as artifacts and publishes the metrics summary. Hooks run lint/format checks
+before commits and the full quality suite before pushes; install them once per
+clone. All checks are also available manually without hooks.
+
+## PyPI releases
+
+Increasing `project.version` on `main` triggers
+[`publish-pypi.yml`](.github/workflows/publish-pypi.yml). It reruns the Python
+quality matrix, builds and validates the distributions, then publishes using
+PyPI trusted publishing (OIDC, no API-token secret). Unchanged versions are not
+published. See [publishing instructions](docs/PUBLISHING.md) for version bumps,
+lockfile updates, retries, and trusted-publisher configuration.
+
+## Package structure
+
+The [detailed refactoring plan](docs/REFACTORING_PLAN.md) describes the next
+steps toward remote-authoritative Git captures, interchangeable GitHub/GitLab
+integrations, future Jira issues, and independent language-parser plugins.
+Initial platform contracts live in `platform_integrations/`; the existing
+GitHub pipeline has not yet been migrated to them.
+
+```text
+src/synirmos/
+  core/        # domain contracts, configuration, IDs, events, budgets, protocols
+  sources/     # Git and GitHub evidence adapters
+  processing/  # content parsing, topics, LLM enrichment, linking
+  storage/     # GestaltDB persistence and backend capability checks
+  runtime/     # journal/replay orchestration and worker processes
+  reporting/   # inspection queries, SVG rendering, evaluation metrics
+```
+
+Implementations and imports use these domain packages directly, such as
+`synirmos.sources.git` and `synirmos.processing.content`. There is no separate
+legacy namespace or flat compatibility layer to package. Boundary tests prevent
+example dependencies or provider imports from entering `core`.
+
+## Analyze your own repository
+
+The library accepts a repository URL, a full commit SHA, a UTC time window, and
+an explicit work-item allowlist. Start with the generic
+[`configs/repository.toml`](configs/repository.toml) template; the library has
+no built-in repository selection or implicit configuration path.
+
+Copy that configuration to your own TOML file and set:
+
+- `repository.owner`, `name`, and `url` to your target repository.
+- `repository.anchor` to a full 40-character commit SHA.
+- `repository.window.start` and `end` to your UTC interval (start inclusive,
+  end exclusive).
+- `repository.allowed_work_items` to the issue/PR numbers to fetch, or `[]`
+  for no GitHub work-item discovery.
+- Budgets, cache paths, and graph settings for your workload.
+
+For local Git and content analysis, use an existing checkout containing the
+anchor and required ancestry:
+
+```python
+from synirmos import load_config
+from synirmos.processing.content import ContentExtractor
+from synirmos.sources.git import GitHistory
+
+config = load_config("my-repository.toml")
+history = GitHistory.open("/path/to/checkout", repository_url=config.repository.url)
+try:
+    selection = history.select(
+        config.repository.anchor,
+        config.repository.window,
+        max_depth=config.git.max_depth,
+    )
+    if len(selection.selected_commits) > config.budgets.max_commits:
+        raise ValueError("selected history exceeds the configured commit budget")
+    index = history.index(selection)
+    content = ContentExtractor.from_history(history).extract(index)
+    print(f"{len(index.selection.selected_commits)} commits, {len(content.snapshots)} snapshots")
+finally:
+    history.close()
+```
+
+This path makes no GitHub or LLM calls and opens no graph database. Missing
+ancestry and unsupported content are reported as coverage gaps. Always pass
+your configuration explicitly to `load_config(path)`; calling it without a
+path is an error. Paths in the configuration are relative to the working
+directory of the calling application.
+
+## Reproducible sample
+
+The self-contained [`examples/tf_gnns/`](examples/tf_gnns/README.md) workflow
+owns its configuration, scripts, recorded evidence, tests, and historical
+artifacts. It consumes the installed library without changing `sys.path`.
+Neither the library, its generic tests, nor its wheel/source distributions
+depend on that example. See the example README for setup and run commands.
 
 ## Setup and privacy
 
 Setup is local-first: the default test suite and the recorded-evidence
-fixtures need no secrets and no network.  Two capabilities are explicitly
-opt-in and never run by default:
+fixtures need no secrets and no network. Remote access is explicit:
 
-- GitHub access reads the public `tf_gnns` repository through `httpx`
+- Git clone/fetch operations access the configured remote when explicitly called;
+  opening and analyzing an existing local checkout does not fetch history.
+- GitHub access reads the configured repository and allowlisted work items through `httpx`
   (`GITHUB_TOKEN` from the configured `token_env`; unauthenticated runs also
   work within rate limits).  Raw responses are cached under `data/cache`
-  without credentials; the token never leaves the process or enters a file.
+  without credentials; the token is used only for authentication and is not
+  persisted in evidence files.
 - LLM enrichment requires `llm.enabled = true` **and**
   `llm.privacy_consent = true`, plus the `openai` extra
   (`uv run --with langchain-openai ...`) and `OPENAI_API_KEY`.  Prompts carry
   only repository evidence already selected for indexing, and every call is
   budgeted, cached, and recorded with model/prompt/schema provenance.
 
-Nothing in the pipeline mutates the target repository, opens sockets except
-through those two gates, or invents history: unavailable source history is
-reported as explicit coverage gaps.  `examples/evaluate.py` reproduces the
-bounded live evaluation; pass `--llm` only with consent and a key.
+The analysis does not execute target-repository code or mutate remote work
+items. Git clone/fetch writes to the local checkout or object cache; unavailable
+source history is reported as explicit coverage gaps, never invented.
+`examples/tf_gnns/evaluate.py` reproduces the bounded live evaluation; pass `--llm` only
+with consent and a key.
 
 ## Content extraction
 
@@ -55,7 +200,7 @@ bounded live evaluation; pass `--llm` only with consent and a key.
 tree, so baseline snapshots describe the historical commit rather than `HEAD`:
 
 ```python
-from repo_history.content import ContentExtractor
+from synirmos.processing.content import ContentExtractor
 
 index = history.index(selection)
 extractor = ContentExtractor.from_history(history)
@@ -79,7 +224,7 @@ import lists, so configured limits stay observable in the output.
 `repository.allowed_work_items` and keeps every raw response it used:
 
 ```python
-from repo_history.github import (
+from synirmos.sources.github import (
     EvidenceCache,
     GitHubCredentials,
     GitHubDiscoverer,
@@ -125,7 +270,7 @@ for selected commits; immutable commits carry `info_horizon == event_time`,
 while mutable remote observations carry `info_horizon == observed_at`.
 
 ```python
-from repo_history.orchestration import (
+from synirmos.runtime.orchestration import (
     EventJournal,
     StageRunner,
     TemporalCoordinator,
@@ -161,7 +306,7 @@ version with provenance (`prov_run_id`, origin event, information horizon,
 evidence IDs), and records the run in each temporal commit's metadata:
 
 ```python
-from repo_history.graph import GraphSink, map_discovery, map_git_index
+from synirmos.storage.graph import GraphSink, map_discovery, map_git_index
 
 mapped = map_git_index(index, ids, run_id=run_id)
 sink = GraphSink.create(config.graph, run_id=run_id, overwrite=True)
@@ -196,7 +341,7 @@ outcome is reuse, a genuinely new proposal, an alias suggestion, or an
 explicit abstention — each with matched terms as the rationale:
 
 ```python
-from repo_history.labeling import (
+from synirmos.processing.labeling import (
     DeterministicLabeler,
     extract_snapshot_features,
     seed_registry,
@@ -229,7 +374,7 @@ grounded: reused topics and link targets must come from the supplied
 candidates, and invalid output is retried, then abstained — never invented:
 
 ```python
-from repo_history.enrichment import Enricher, EnrichmentCache, build_chat_model
+from synirmos.processing.enrichment import Enricher, EnrichmentCache, build_chat_model
 
 settings.llm.enabled = True  # plus privacy_consent=True, or it refuses
 model = build_chat_model(settings.llm)  # documented OpenAI configuration
@@ -262,7 +407,7 @@ candidates, registry snapshot, horizon), so any worker — now or after a
 restart — replays the same job:
 
 ```python
-from repo_history.worker import JobQueue, WorkerPool, collect_results, make_job_id
+from synirmos.runtime.worker import JobQueue, WorkerPool, collect_results, make_job_id
 
 queue = JobQueue("data/work")
 queue.submit(WorkJob(job_id=make_job_id(...), ...))  # resubmits dedupe
@@ -289,7 +434,7 @@ repositories, unknown or ambiguous SHAs, and deleted branches are reported as
 references, never invented into links:
 
 ```python
-from repo_history.linking import (
+from synirmos.processing.linking import (
     infer_topical_links,
     resolve_provider_links,
     resolve_textual_links,
@@ -320,7 +465,7 @@ containment, topic timelines (emergence then recurrence), files and sections
 for a work item at a chosen time, and attribution for labels and links:
 
 ```python
-from repo_history.inspection import Inspector
+from synirmos.reporting.inspection import Inspector
 
 inspector = Inspector(
     index=index, discovery=discovery, content=content, links=links,
@@ -332,8 +477,8 @@ traces = inspector.work_items_for_commits([sha, ...])
 timeline = inspector.topic_timeline(topic_id)
 ```
 
-`examples/runbook.py` executes the whole pipeline end to end on the live
-slice and saves `examples/report.md` plus `examples/slice.svg`. The figure
+The [reference runbook](examples/tf_gnns/runbook.py) executes the analysis on
+its recorded slice and saves `report.md` plus `slice.svg` in its output directory. The figure
 is deterministic SVG (stdlib only): factual links are solid blue, inferred
 topical links are dashed amber, nodes are capped at a fixed budget with
 omissions reported, and the footer records run, horizon, counts, and gaps.

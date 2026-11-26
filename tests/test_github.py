@@ -8,15 +8,18 @@ requests, and rate-limit waits fully reproducible.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 import pytest
 
-from repo_history.budgets import BudgetLedger
-from repo_history.events import EventKind
-from repo_history.github import (
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.events import EventKind
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import Budgets, RepositorySpec, TimeWindow
+from synirmos.core.protocols import WorkItemProvider
+from synirmos.sources.github import (
     EvidenceCache,
     EvidenceMissing,
     GitHubAuthError,
@@ -32,11 +35,8 @@ from repo_history.github import (
     GitHubSettings,
     parse_link_header,
 )
-from repo_history.ids import IdFactory
-from repo_history.models import Budgets, RepositorySpec, TimeWindow
-from repo_history.protocols import WorkItemProvider
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 ANCHOR = "9bfe6c19c02723dbbf101b9e311de684a4728bb1"
 REPOSITORY = RepositorySpec(
@@ -81,8 +81,7 @@ def issue(
         "created_at": created_at,
         "updated_at": "2026-09-14T09:00:00Z",
         "closed_at": "2026-09-14T10:00:00Z",
-        "html_url": html_url
-        or f"https://github.com/mylonasc/tf_gnns/issues/{number}",
+        "html_url": html_url or f"https://github.com/mylonasc/tf_gnns/issues/{number}",
         "labels": list(labels),
     }
     if pull_request:
@@ -352,19 +351,14 @@ def test_full_discovery_collects_items_labels_hierarchy_and_pr_evidence(tmp_path
 
     issue_item = discovery.work_items[0]
     assert issue_item.comments[0].author == "reviewer"
-    assert issue_item.comments[0].created_at == datetime(
-        2026, 9, 13, 12, tzinfo=UTC
-    )
+    assert issue_item.comments[0].created_at == datetime(2026, 9, 13, 12, tzinfo=UTC)
     assert issue_item.timeline[0].label == "bug"
     assert issue_item.timeline_available is True
 
     # Current bodies/labels are not historical revisions.
     assert all(item.revisions.body_history is False for item in discovery.work_items)
     assert all(item.revisions.label_history is False for item in discovery.work_items)
-    assert any(
-        gap.code == "github-historical-revisions-unavailable"
-        for gap in discovery.gaps
-    )
+    assert any(gap.code == "github-historical-revisions-unavailable" for gap in discovery.gaps)
     assert discovery.truncated is False
 
 
@@ -387,9 +381,7 @@ def test_committed_timeline_events_use_the_commit_timestamp(tmp_path):
     assert entry.event == "committed"
     assert entry.created_at == datetime(2026, 9, 13, 14, 5, tzinfo=UTC)
     assert entry.commit_id == "abc123"
-    assert not any(
-        gap.code == "github-timeline-malformed" for gap in discovery.gaps
-    )
+    assert not any(gap.code == "github-timeline-malformed" for gap in discovery.gaps)
 
 
 def test_events_are_deterministic_and_never_backdate_current_state(tmp_path):
@@ -402,14 +394,10 @@ def test_events_are_deterministic_and_never_backdate_current_state(tmp_path):
     assert len({event.event_id for event in events}) == len(events)
 
     created = [event for event in events if event.payload.get("event") == "created"]
-    observed = [
-        event for event in events if event.kind is EventKind.WORK_ITEM_OBSERVED
-    ]
+    observed = [event for event in events if event.kind is EventKind.WORK_ITEM_OBSERVED]
     comments = [event for event in events if event.payload.get("event") == "comment"]
     merged = [event for event in events if event.payload.get("event") == "merged"]
-    label_events = [
-        event for event in events if event.payload.get("event") == "label-observed"
-    ]
+    label_events = [event for event in events if event.payload.get("event") == "label-observed"]
 
     assert len(created) == 2
     assert len(observed) == 2
@@ -457,34 +445,26 @@ def test_pagination_follows_link_headers(tmp_path):
     item = discovery.work_items[0]
     assert [entry.body for entry in item.comments] == ["first", "second"]
     assert item.comments_truncated is False
-    assert not any(
-        gap.code == "github-pagination-truncated" for gap in discovery.gaps
-    )
+    assert not any(gap.code == "github-pagination-truncated" for gap in discovery.gaps)
 
 
 def test_pagination_truncation_is_an_explicit_gap(tmp_path):
     fake = full_fixture()
-    fake.overrides["/repos/mylonasc/tf_gnns/issues/10/comments"] = (
-        lambda request: httpx.Response(
-            200,
-            json=[comment(100)],
-            headers={
-                "link": (
-                    "<https://api.github.com/repos/mylonasc/tf_gnns/issues/10/"
-                    'comments?page=2>; rel="next"'
-                )
-            },
-        )
+    fake.overrides["/repos/mylonasc/tf_gnns/issues/10/comments"] = lambda request: httpx.Response(
+        200,
+        json=[comment(100)],
+        headers={
+            "link": (
+                "<https://api.github.com/repos/mylonasc/tf_gnns/issues/10/"
+                'comments?page=2>; rel="next"'
+            )
+        },
     )
 
-    discovery, _ = discover(
-        tmp_path, fake, settings=GitHubSettings(max_pages=1)
-    )
+    discovery, _ = discover(tmp_path, fake, settings=GitHubSettings(max_pages=1))
     assert discovery.truncated is True
     assert discovery.work_items[0].comments_truncated is True
-    assert any(
-        gap.code == "github-pagination-truncated" for gap in discovery.gaps
-    )
+    assert any(gap.code == "github-pagination-truncated" for gap in discovery.gaps)
 
 
 def test_conditional_requests_reuse_cached_bodies(tmp_path):
@@ -540,19 +520,16 @@ def test_missing_work_item_is_an_absence_not_invented_content(tmp_path):
     discovery, _ = discover(tmp_path, fake)
 
     assert [item.number for item in discovery.work_items] == [11]
+    assert any(gap.code == "github-work-item-missing" for gap in discovery.gaps)
     assert any(
-        gap.code == "github-work-item-missing" for gap in discovery.gaps
-    )
-    assert any(
-        absence.kind == "work-item" and "#10" in absence.subject
-        for absence in discovery.absences
+        absence.kind == "work-item" and "#10" in absence.subject for absence in discovery.absences
     )
 
 
 def test_forbidden_optional_endpoint_keeps_the_work_item(tmp_path):
     fake = full_fixture()
-    fake.overrides["/repos/mylonasc/tf_gnns/issues/10/comments"] = (
-        lambda request: httpx.Response(403, json={"message": "Forbidden"})
+    fake.overrides["/repos/mylonasc/tf_gnns/issues/10/comments"] = lambda request: httpx.Response(
+        403, json={"message": "Forbidden"}
     )
 
     discovery, _ = discover(tmp_path, fake)
@@ -560,23 +537,17 @@ def test_forbidden_optional_endpoint_keeps_the_work_item(tmp_path):
     item = discovery.work_items[0]
     assert item.number == 10
     assert item.comments == ()
-    assert any(
-        gap.code == "github-comments-unavailable" for gap in discovery.gaps
-    )
+    assert any(gap.code == "github-comments-unavailable" for gap in discovery.gaps)
 
 
 def test_payload_from_another_repository_is_rejected(tmp_path):
     fake = full_fixture()
-    fake.issues[10] = issue(
-        10, html_url="https://github.com/someone/else/issues/10"
-    )
+    fake.issues[10] = issue(10, html_url="https://github.com/someone/else/issues/10")
 
     discovery, _ = discover(tmp_path, fake)
 
     assert [item.number for item in discovery.work_items] == [11]
-    gap = next(
-        gap for gap in discovery.gaps if gap.code == "github-scope-violation"
-    )
+    gap = next(gap for gap in discovery.gaps if gap.code == "github-scope-violation")
     assert gap.status.value == "unsupported"
 
 
@@ -589,17 +560,11 @@ def test_hierarchy_edges_outside_the_selection_are_flagged(tmp_path):
 
     discovery, _ = discover(tmp_path, fake)
 
-    external = next(
-        edge for edge in discovery.hierarchy_edges if edge.parent_number == 99
-    )
+    external = next(edge for edge in discovery.hierarchy_edges if edge.parent_number == 99)
     assert external.in_scope is False
-    assert any(
-        gap.code == "github-hierarchy-out-of-scope" for gap in discovery.gaps
-    )
+    assert any(gap.code == "github-hierarchy-out-of-scope" for gap in discovery.gaps)
     # The out-of-scope parent is never fetched.
-    assert not any(
-        "/issues/99" in str(request.url) for request in fake.requests
-    )
+    assert not any("/issues/99" in str(request.url) for request in fake.requests)
 
 
 def test_absent_labels_and_hierarchy_are_explicit(tmp_path):
@@ -611,9 +576,7 @@ def test_absent_labels_and_hierarchy_are_explicit(tmp_path):
     assert discovery.hierarchy_edges == ()
     kinds = {absence.kind for absence in discovery.absences}
     assert {"provider-label", "hierarchy"} <= kinds
-    assert any(
-        absence.kind == "standalone-issue" for absence in discovery.absences
-    ) is False
+    assert any(absence.kind == "standalone-issue" for absence in discovery.absences) is False
 
 
 def test_standalone_issues_are_reported_when_only_pull_requests_exist(tmp_path):
@@ -624,16 +587,12 @@ def test_standalone_issues_are_reported_when_only_pull_requests_exist(tmp_path):
 
     discovery, _ = discover(tmp_path, fake, selection=repository(allowed=(11,)))
 
-    assert any(
-        absence.kind == "standalone-issue" for absence in discovery.absences
-    )
+    assert any(absence.kind == "standalone-issue" for absence in discovery.absences)
 
 
 def test_excluded_work_items_are_never_requested(tmp_path):
     fake = full_fixture()
-    discovery, _ = discover(
-        tmp_path, fake, selection=repository(allowed=(10, 11), excluded=(11,))
-    )
+    discovery, _ = discover(tmp_path, fake, selection=repository(allowed=(10, 11), excluded=(11,)))
 
     assert [item.number for item in discovery.work_items] == [10]
     assert not any("/pulls/11" in str(request.url) for request in fake.requests)
@@ -645,9 +604,7 @@ def test_empty_selection_fetches_nothing_and_records_absence(tmp_path):
 
     assert fake.requests == []
     assert discovery.work_items == ()
-    assert any(
-        absence.kind == "work-item-selection" for absence in discovery.absences
-    )
+    assert any(absence.kind == "work-item-selection" for absence in discovery.absences)
 
 
 def test_api_budget_stops_discovery_and_reports_a_gap(tmp_path):
@@ -738,9 +695,7 @@ def test_client_retries_transient_server_errors(tmp_path):
         return httpx.Response(200, json={"ok": True})
 
     sleeps: list[float] = []
-    client = make_client(
-        handler, tmp_path, settings=GitHubSettings(max_retries=1), sleeps=sleeps
-    )
+    client = make_client(handler, tmp_path, settings=GitHubSettings(max_retries=1), sleeps=sleeps)
     data, metadata = client.get_json("/repos/mylonasc/tf_gnns/issues/10")
 
     assert data == {"ok": True}
@@ -753,9 +708,7 @@ def test_client_reports_exhausted_server_errors(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={"message": "boom"})
 
-    client = make_client(
-        handler, tmp_path, settings=GitHubSettings(max_retries=1)
-    )
+    client = make_client(handler, tmp_path, settings=GitHubSettings(max_retries=1))
     with pytest.raises(GitHubResponseError) as caught:
         client.get_json("/repos/mylonasc/tf_gnns/issues/10")
     assert caught.value.status_code == 500
@@ -786,9 +739,7 @@ def test_client_waits_for_a_short_rate_limit_and_retries(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         attempts["count"] += 1
         if attempts["count"] == 1:
-            return httpx.Response(
-                429, headers={"retry-after": "2"}, json={"message": "slow down"}
-            )
+            return httpx.Response(429, headers={"retry-after": "2"}, json={"message": "slow down"})
         return httpx.Response(200, json={"ok": True})
 
     sleeps: list[float] = []
@@ -807,9 +758,7 @@ def test_client_waits_for_a_short_rate_limit_and_retries(tmp_path):
 
 def test_client_refuses_to_wait_past_the_rate_limit_ceiling(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            429, headers={"retry-after": "600"}, json={"message": "slow down"}
-        )
+        return httpx.Response(429, headers={"retry-after": "600"}, json={"message": "slow down"})
 
     client = make_client(
         handler,
@@ -824,20 +773,14 @@ def test_client_checks_required_oauth_scopes(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"ok": True}, headers={"x-oauth-scopes": "read:org"})
 
-    client = make_client(
-        handler, tmp_path, settings=GitHubSettings(required_scopes=("repo",))
-    )
+    client = make_client(handler, tmp_path, settings=GitHubSettings(required_scopes=("repo",)))
     with pytest.raises(GitHubPermissionError):
         client.get_json("/repos/mylonasc/tf_gnns/issues/10")
 
     def scoped(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, json={"ok": True}, headers={"x-oauth-scopes": "repo, read:org"}
-        )
+        return httpx.Response(200, json={"ok": True}, headers={"x-oauth-scopes": "repo, read:org"})
 
-    client = make_client(
-        scoped, tmp_path, settings=GitHubSettings(required_scopes=("repo",))
-    )
+    client = make_client(scoped, tmp_path, settings=GitHubSettings(required_scopes=("repo",)))
     assert client.get_json("/repos/mylonasc/tf_gnns/issues/10")[0] == {"ok": True}
 
 
@@ -845,17 +788,13 @@ def test_client_enforces_the_response_size_limit(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"x" * 4096)
 
-    client = make_client(
-        handler, tmp_path, settings=GitHubSettings(max_response_bytes=1024)
-    )
+    client = make_client(handler, tmp_path, settings=GitHubSettings(max_response_bytes=1024))
     with pytest.raises(GitHubResponseTooLarge):
         client.get_json("/repos/mylonasc/tf_gnns/issues/10")
 
 
 def test_client_refuses_urls_outside_the_configured_origin(tmp_path):
-    client = make_client(
-        lambda request: httpx.Response(200, json={}), tmp_path
-    )
+    client = make_client(lambda request: httpx.Response(200, json={}), tmp_path)
     with pytest.raises(GitHubScopeError):
         client.get_json("https://evil.example/repos/mylonasc/tf_gnns/issues/10")
 
@@ -892,9 +831,7 @@ def test_client_sends_a_token_but_never_persists_it(tmp_path):
     client.get_json("/repos/mylonasc/tf_gnns/issues/10")
 
     assert seen == ["Bearer s3cret-token"]
-    cached = client.cache.path_for(
-        "https://api.github.com/repos/mylonasc/tf_gnns/issues/10"
-    )
+    cached = client.cache.path_for("https://api.github.com/repos/mylonasc/tf_gnns/issues/10")
     assert cached.is_file()
     assert "s3cret-token" not in cached.read_text(encoding="utf-8")
     stored = json.loads(cached.read_text(encoding="utf-8"))
@@ -911,9 +848,7 @@ def test_credentials_load_from_the_configured_environment_variable():
     assert credentials.source == "environment"
     assert credentials.authenticated is True
 
-    missing = GitHubCredentials.from_env(
-        GitHubSettings(token_env="MY_GH_TOKEN"), environ={}
-    )
+    missing = GitHubCredentials.from_env(GitHubSettings(token_env="MY_GH_TOKEN"), environ={})
     assert missing.token is None
     assert missing.authenticated is False
 
@@ -940,7 +875,7 @@ def test_failed_retries_still_count_against_the_request_budget(tmp_path):
         settings=GitHubSettings(max_retries=3),
         ledger=ledger,
     )
-    with pytest.raises(Exception):
+    with pytest.raises(BudgetExceeded):
         client.get_json("/repos/mylonasc/tf_gnns/issues/10")
     assert ledger.api_requests == 1
     assert ledger.exhausted.get("api_requests")

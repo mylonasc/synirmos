@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from repo_history.ids import IdFactory, canonical_repository_url, stable_id
+from synirmos.core.ids import IdFactory, canonical_repository_url, stable_id
 
 
 def test_canonical_repository_url_normalizes_supported_forms():

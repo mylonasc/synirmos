@@ -7,29 +7,15 @@ measured with precision/recall; abstentions are recorded, not invented.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from repo_history.analysis import AnalysisResult, DecisionStatus, Provenance
-from repo_history.git import (
-    BranchObservation,
-    CommitRecord,
-    GitIndex,
-    GitSelection,
-    TreeEntryRecord,
-)
-from repo_history.github import (
-    GitHubDiscovery,
-    GitHubWorkItem,
-    PullRequestCommit,
-    PullRequestEvidence,
-    RevisionAvailability,
-)
-from repo_history.graph import GraphSink
-from repo_history.ids import IdFactory
-from repo_history.labeling import TopicAssignment
-from repo_history.linking import (
+from synirmos.core.analysis import AnalysisResult, DecisionStatus, Provenance
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import EvidenceRef, GraphSettings, LinkingSettings, TimeWindow
+from synirmos.processing.labeling import TopicAssignment
+from synirmos.processing.linking import (
     LinkRelation,
     infer_topical_links,
     link_edge_writes,
@@ -37,9 +23,22 @@ from repo_history.linking import (
     resolve_textual_links,
     score_links,
 )
-from repo_history.models import EvidenceRef, GraphSettings, LinkingSettings, TimeWindow
+from synirmos.sources.git import (
+    BranchObservation,
+    CommitRecord,
+    GitIndex,
+    GitSelection,
+)
+from synirmos.sources.github import (
+    GitHubDiscovery,
+    GitHubWorkItem,
+    PullRequestCommit,
+    PullRequestEvidence,
+    RevisionAvailability,
+)
+from synirmos.storage.graph import GraphSink
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 DAY_ONE = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
 DAY_TWO = datetime(2026, 9, 14, 11, 0, tzinfo=UTC)
@@ -142,8 +141,11 @@ def assignment(
 
 
 def test_fixture_text_resolves_exact_explicit_links():
-    known = {10: ids().work_item("github", 10), 11: ids().work_item("github", 11),
-             12: ids().work_item("github", 12)}
+    known = {
+        10: ids().work_item("github", 10),
+        11: ids().work_item("github", 11),
+        12: ids().work_item("github", 12),
+    }
     report = resolve_textual_links(
         [
             (
@@ -170,10 +172,7 @@ def test_fixture_text_resolves_exact_explicit_links():
         horizon=NOW,
     )
 
-    triples = {
-        (link.source_id, link.relation.value, link.target_id)
-        for link in report.links
-    }
+    triples = {(link.source_id, link.relation.value, link.target_id) for link in report.links}
     assert triples == {
         (known[10], "INTENDS_TO_RESOLVE", known[10]),
         (known[10], "MENTIONS", known[12]),
@@ -185,8 +184,7 @@ def test_fixture_text_resolves_exact_explicit_links():
     }
     # Merge-PR mentions are never mistaken for intent.
     assert not any(
-        link.relation is LinkRelation.INTENDS_TO_RESOLVE
-        and link.source_id == ids().commit(C1)
+        link.relation is LinkRelation.INTENDS_TO_RESOLVE and link.source_id == ids().commit(C1)
         for link in report.links
     )
     # Everything unresolved or foreign is reported, never linked.
@@ -194,14 +192,15 @@ def test_fixture_text_resolves_exact_explicit_links():
         (ref.reference.target, ref.reason) for ref in report.references if not ref.resolved
     }
     assert any(target == "5" and "foreign" in reason for target, reason in unresolved)
-    assert any(target == "99" and "not in the known selection" in reason
-               for target, reason in unresolved)
-    assert any(target == "deadbee5" and "no known commit" in reason
-               for target, reason in unresolved)
+    assert any(
+        target == "99" and "not in the known selection" in reason for target, reason in unresolved
+    )
+    assert any(
+        target == "deadbee5" and "no known commit" in reason for target, reason in unresolved
+    )
     # Every link carries inspectable evidence and a rationale.
     assert all(link.evidence and link.rationale for link in report.links)
-    assert all(link.run_id == RUN_ID and link.info_horizon == NOW
-               for link in report.links)
+    assert all(link.run_id == RUN_ID and link.info_horizon == NOW for link in report.links)
 
     scores = score_links(
         [(source, relation, target) for source, relation, target in triples],
@@ -255,9 +254,7 @@ def test_resolution_is_deterministic():
         "horizon": NOW,
     }
 
-    assert resolve_textual_links(texts, **arguments) == resolve_textual_links(
-        texts, **arguments
-    )
+    assert resolve_textual_links(texts, **arguments) == resolve_textual_links(texts, **arguments)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +273,9 @@ def fixture_index() -> GitIndex:
         selection=selection,
         branches=(
             BranchObservation(
-                name="main", ref="refs/heads/main", tip_sha=C1,
+                name="main",
+                ref="refs/heads/main",
+                tip_sha=C1,
                 contains_anchor=True,
             ),
         ),
@@ -345,41 +344,56 @@ def test_provider_links_capture_closure_and_branch_status():
     assert branches["branch:base"].target_id == ids().branch("main")
     assert branches["branch:base"].confidence == 0.9
 
-    assert any(
-        gap.code == "link-merge-commit-outside-selection" for gap in report.gaps
-    )
+    assert any(gap.code == "link-merge-commit-outside-selection" for gap in report.gaps)
 
 
 def test_remote_tracking_branches_resolve_pr_head_refs():
     base = commit_record(C2, committed_at=DAY_ONE)
     selection = GitSelection(
-        anchor="a" * 40, window=WINDOW, selected_commits=(),
+        anchor="a" * 40,
+        window=WINDOW,
+        selected_commits=(),
         boundary_commits=(base,),
     )
     remote_index = GitIndex(
         selection=selection,
         branches=(
             BranchObservation(
-                name="origin/feat", ref="refs/remotes/origin/feat",
-                tip_sha=C2, contains_anchor=False, source="remote",
+                name="origin/feat",
+                ref="refs/remotes/origin/feat",
+                tip_sha=C2,
+                contains_anchor=False,
+                source="remote",
             ),
         ),
     )
     pull = PullRequestEvidence(
-        number=11, title="Work 11", state="open", merged=False,
-        head_ref="feat", head_sha="h" * 40, base_ref="main", base_sha=C2,
+        number=11,
+        title="Work 11",
+        state="open",
+        merged=False,
+        head_ref="feat",
+        head_sha="h" * 40,
+        base_ref="main",
+        base_sha=C2,
         url="https://github.com/mylonasc/tf_gnns/pull/11",
     )
     discovery = GitHubDiscovery(
-        repository=REPOSITORY, observed_at=NOW, offline=True,
+        repository=REPOSITORY,
+        observed_at=NOW,
+        offline=True,
         work_items=(item(11, kind="pull_request"),),
         pull_requests=(pull,),
-        provider_labels=(), label_assignments=(), hierarchy_edges=(),
-        absences=(), gaps=(), fetches=(), counters={}, truncated=False,
+        provider_labels=(),
+        label_assignments=(),
+        hierarchy_edges=(),
+        absences=(),
+        gaps=(),
+        fetches=(),
+        counters={},
+        truncated=False,
     )
-    report = resolve_provider_links(
-        discovery, remote_index, ids=ids(), run_id=RUN_ID, horizon=NOW
-    )
+    report = resolve_provider_links(discovery, remote_index, ids=ids(), run_id=RUN_ID, horizon=NOW)
 
     heads = [link for link in report.links if link.association == "branch:head"]
     bases = [link for link in report.links if link.association == "branch:base"]
@@ -511,8 +525,9 @@ def test_score_links_measures_quality():
 
 
 def test_linking_settings_load_from_toml():
-    from repo_history.config import load_config
+    from synirmos.core.config import load_config
+    from tests.support import TEST_CONFIG
 
-    assert load_config().linking.min_inference_score == 0.3
-    with pytest.raises(Exception):
+    assert load_config(TEST_CONFIG).linking.min_inference_score == 0.3
+    with pytest.raises(ValueError):
         LinkingSettings(min_inference_score=1.5)

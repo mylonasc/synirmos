@@ -7,11 +7,17 @@ with fixed timestamps.
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from repo_history.analysis import AnalysisResult, DecisionStatus, Provenance
-from repo_history.content import ContentIndex, SectionRecord, SnapshotContent
-from repo_history.git import (
+from synirmos.core.analysis import AnalysisResult, DecisionStatus, Provenance
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import EvidenceRef, TimeWindow
+from synirmos.processing.content import ContentIndex, SectionRecord, SnapshotContent
+from synirmos.processing.labeling import TopicAssignment
+from synirmos.processing.linking import LinkRecord, LinkRelation
+from synirmos.reporting.inspection import Inspector
+from synirmos.reporting.viz import render_slice_svg
+from synirmos.sources.git import (
     BranchObservation,
     CommitRecord,
     FileChangeRecord,
@@ -19,20 +25,14 @@ from repo_history.git import (
     GitSelection,
     TreeEntryRecord,
 )
-from repo_history.github import (
+from synirmos.sources.github import (
     GitHubDiscovery,
     GitHubWorkItem,
     PullRequestEvidence,
     RevisionAvailability,
 )
-from repo_history.ids import IdFactory
-from repo_history.inspection import Inspector
-from repo_history.labeling import TopicAssignment
-from repo_history.linking import LinkRecord, LinkRelation
-from repo_history.models import EvidenceRef, TimeWindow
-from repo_history.viz import render_slice_svg
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 EARLY = datetime(2026, 9, 14, 9, 0, tzinfo=UTC)
 DAY_ONE = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
@@ -52,17 +52,25 @@ def ids() -> IdFactory:
 
 def commit(sha: str, parents=(), at=DAY_ONE) -> CommitRecord:
     return CommitRecord(
-        sha=sha, parents=tuple(parents), tree_sha="t" * 40,
-        message=f"commit {sha[:4]}", author_name="A", author_email="a@t",
-        authored_at=at, committer_name="C", committer_email="c@t",
-        committed_at=at, source_url=f"{REPOSITORY_URL}/commit/{sha}",
+        sha=sha,
+        parents=tuple(parents),
+        tree_sha="t" * 40,
+        message=f"commit {sha[:4]}",
+        author_name="A",
+        author_email="a@t",
+        authored_at=at,
+        committer_name="C",
+        committer_email="c@t",
+        committed_at=at,
+        source_url=f"{REPOSITORY_URL}/commit/{sha}",
         is_merge=len(parents) > 1,
     )
 
 
 def fixture_index() -> GitIndex:
     selection = GitSelection(
-        anchor=TIP, window=WINDOW,
+        anchor=TIP,
+        window=WINDOW,
         selected_commits=(
             commit(MID, parents=(ROOT,), at=DAY_ONE),
             commit(TIP, parents=(MID,), at=DAY_TWO),
@@ -73,27 +81,46 @@ def fixture_index() -> GitIndex:
         selection=selection,
         snapshots=(
             TreeEntryRecord(
-                snapshot_id="snap:guide", commit_sha=TIP, path="docs/guide.md",
-                object_id="o" * 40, mode=0o100644, kind="blob", size=9,
-                is_binary=False, is_lfs_pointer=False, content_status="inspected",
+                snapshot_id="snap:guide",
+                commit_sha=TIP,
+                path="docs/guide.md",
+                object_id="o" * 40,
+                mode=0o100644,
+                kind="blob",
+                size=9,
+                is_binary=False,
+                is_lfs_pointer=False,
+                content_status="inspected",
                 source_url=f"{REPOSITORY_URL}/blob/{TIP}/docs/guide.md",
             ),
         ),
         changes=(
             FileChangeRecord(
-                change_id="change:1", commit_sha=MID, parent_sha=ROOT,
-                comparison="first-parent", path="models/gcn.py", old_path=None,
-                status="added", source_url=f"{REPOSITORY_URL}/commit/{MID}",
+                change_id="change:1",
+                commit_sha=MID,
+                parent_sha=ROOT,
+                comparison="first-parent",
+                path="models/gcn.py",
+                old_path=None,
+                status="added",
+                source_url=f"{REPOSITORY_URL}/commit/{MID}",
             ),
             FileChangeRecord(
-                change_id="change:2", commit_sha=TIP, parent_sha=MID,
-                comparison="first-parent", path="docs/guide.md", old_path=None,
-                status="added", source_url=f"{REPOSITORY_URL}/commit/{TIP}",
+                change_id="change:2",
+                commit_sha=TIP,
+                parent_sha=MID,
+                comparison="first-parent",
+                path="docs/guide.md",
+                old_path=None,
+                status="added",
+                source_url=f"{REPOSITORY_URL}/commit/{TIP}",
             ),
         ),
         branches=(
             BranchObservation(
-                name="main", ref="refs/heads/main", tip_sha=TIP,
+                name="main",
+                ref="refs/heads/main",
+                tip_sha=TIP,
                 contains_anchor=True,
             ),
         ),
@@ -102,73 +129,125 @@ def fixture_index() -> GitIndex:
 
 def fixture_discovery() -> GitHubDiscovery:
     return GitHubDiscovery(
-        repository="mylonasc/tf_gnns", observed_at=NOW, offline=True,
+        repository="mylonasc/tf_gnns",
+        observed_at=NOW,
+        offline=True,
         work_items=(
             GitHubWorkItem(
-                number=10, kind="issue", title="Sparse bug", state="open",
-                state_reason=None, body="Fix docs.", author="mylonasc",
-                created_at=DAY_ONE, updated_at=DAY_ONE, closed_at=None,
+                number=10,
+                kind="issue",
+                title="Sparse bug",
+                state="open",
+                state_reason=None,
+                body="Fix docs.",
+                author="mylonasc",
+                created_at=DAY_ONE,
+                updated_at=DAY_ONE,
+                closed_at=None,
                 url="https://github.com/mylonasc/tf_gnns/issues/10",
-                labels=(), comments=(), timeline=(),
+                labels=(),
+                comments=(),
+                timeline=(),
                 revisions=RevisionAvailability(work_item_number=10),
-                observed_at=NOW, source_hash="0" * 64,
+                observed_at=NOW,
+                source_hash="0" * 64,
             ),
             GitHubWorkItem(
-                number=11, kind="pull_request", title="Fix it", state="closed",
-                state_reason=None, body="Fixes #10.", author="mylonasc",
-                created_at=DAY_ONE, updated_at=DAY_TWO, closed_at=DAY_TWO,
+                number=11,
+                kind="pull_request",
+                title="Fix it",
+                state="closed",
+                state_reason=None,
+                body="Fixes #10.",
+                author="mylonasc",
+                created_at=DAY_ONE,
+                updated_at=DAY_TWO,
+                closed_at=DAY_TWO,
                 url="https://github.com/mylonasc/tf_gnns/pull/11",
-                labels=(), comments=(), timeline=(),
+                labels=(),
+                comments=(),
+                timeline=(),
                 revisions=RevisionAvailability(work_item_number=11),
-                observed_at=NOW, source_hash="1" * 64,
+                observed_at=NOW,
+                source_hash="1" * 64,
             ),
         ),
         pull_requests=(
             PullRequestEvidence(
-                number=11, title="Fix it", state="closed", merged=True,
-                merged_at=DAY_TWO, merge_commit_sha=MERGE, head_ref="feat",
-                head_sha="h" * 40, base_ref="main", base_sha=MID,
+                number=11,
+                title="Fix it",
+                state="closed",
+                merged=True,
+                merged_at=DAY_TWO,
+                merge_commit_sha=MERGE,
+                head_ref="feat",
+                head_sha="h" * 40,
+                base_ref="main",
+                base_sha=MID,
                 url="https://github.com/mylonasc/tf_gnns/pull/11",
             ),
         ),
-        provider_labels=(), label_assignments=(), hierarchy_edges=(),
-        absences=(), gaps=(), fetches=(), counters={}, truncated=False,
+        provider_labels=(),
+        label_assignments=(),
+        hierarchy_edges=(),
+        absences=(),
+        gaps=(),
+        fetches=(),
+        counters={},
+        truncated=False,
     )
 
 
 def link(
-    source: str, target: str, relation: LinkRelation, horizon: datetime = NOW,
+    source: str,
+    target: str,
+    relation: LinkRelation,
+    horizon: datetime = NOW,
     label: str = "test link",
 ) -> LinkRecord:
     return LinkRecord(
         link_id=f"link:{source}:{relation.value}:{target}",
-        source_id=source, target_id=target, relation=relation,
-        confidence=0.8, rationale=label,
+        source_id=source,
+        target_id=target,
+        relation=relation,
+        confidence=0.8,
+        rationale=label,
         evidence=(
             EvidenceRef(
-                evidence_id="ev:1", source="linking", source_id=source,
+                evidence_id="ev:1",
+                source="linking",
+                source_id=source,
                 url=f"https://example.test/{source}",
             ),
         ),
-        method="link-resolver", run_id=RUN_ID, info_horizon=horizon,
+        method="link-resolver",
+        run_id=RUN_ID,
+        info_horizon=horizon,
     )
 
 
 def derived_assignment(subject_id: str, topic: str, horizon: datetime = NOW):
     return TopicAssignment(
-        subject_id=subject_id, kind="derived", action="reuse",
-        topic_id=topic, topic_name="sparse-training", confidence=0.9,
-        rationale="fixture reuse", registry_version=1,
+        subject_id=subject_id,
+        kind="derived",
+        action="reuse",
+        topic_id=topic,
+        topic_name="sparse-training",
+        confidence=0.9,
+        rationale="fixture reuse",
+        registry_version=1,
         result=AnalysisResult.create(
-            subject_id=subject_id, kind="topic", status=DecisionStatus.ACCEPTED,
+            subject_id=subject_id,
+            kind="topic",
+            status=DecisionStatus.ACCEPTED,
             value={"action": "reuse", "topic_id": topic},
             provenance=Provenance(
-                method="deterministic-tfidf-labeler", method_version="1",
-                run_id=RUN_ID, info_horizon=horizon,
+                method="deterministic-tfidf-labeler",
+                method_version="1",
+                run_id=RUN_ID,
+                info_horizon=horizon,
             ),
-            evidence=(
-                EvidenceRef(evidence_id="ev:2", source="labeling", source_id=subject_id),
-            ),
+            evidence=(EvidenceRef(evidence_id="ev:2", source="labeling", source_id=subject_id),),
         ),
     )
 
@@ -177,19 +256,34 @@ def fixture_content() -> ContentIndex:
     return ContentIndex(
         snapshots=(
             SnapshotContent(
-                snapshot_id="snap:guide", commit_sha=TIP, path="docs/guide.md",
-                oid="o" * 40, content_id="content:guide", status="parsed",
-                media_type="markdown", language="markdown", module=None,
+                snapshot_id="snap:guide",
+                commit_sha=TIP,
+                path="docs/guide.md",
+                oid="o" * 40,
+                content_id="content:guide",
+                status="parsed",
+                media_type="markdown",
+                language="markdown",
+                module=None,
                 is_baseline=False,
                 source_url=f"{REPOSITORY_URL}/blob/{TIP}/docs/guide.md",
             ),
         ),
         sections=(
             SectionRecord(
-                section_id="sec:1", snapshot_id="snap:guide",
-                content_id="content:guide", commit_sha=TIP, path="docs/guide.md",
-                ordinal=0, level=1, heading="Training", slug="training",
-                start_line=1, end_line=5, start_offset=0, end_offset=80,
+                section_id="sec:1",
+                snapshot_id="snap:guide",
+                content_id="content:guide",
+                commit_sha=TIP,
+                path="docs/guide.md",
+                ordinal=0,
+                level=1,
+                heading="Training",
+                slug="training",
+                start_line=1,
+                end_line=5,
+                start_offset=0,
+                end_offset=80,
                 is_baseline=False,
                 source_url=f"{REPOSITORY_URL}/blob/{TIP}/docs/guide.md#L1-L5",
             ),
@@ -202,8 +296,10 @@ def inspector(horizon: datetime = NOW) -> Inspector:
         link(ids().work_item("github", 11), ids().commit(MERGE), LinkRelation.CLOSED_BY),
         link(ids().commit(TIP), ids().work_item("github", 10), LinkRelation.MENTIONS),
         link(
-            ids().work_item("github", 10), ids().file("docs/guide.md"),
-            LinkRelation.RELATED_TO, horizon=horizon,
+            ids().work_item("github", 10),
+            ids().file("docs/guide.md"),
+            LinkRelation.RELATED_TO,
+            horizon=horizon,
         ),
     ]
     assignments = [
@@ -211,9 +307,14 @@ def inspector(horizon: datetime = NOW) -> Inspector:
         derived_assignment(ids().work_item("github", 10), ids().topic("sparse")),
     ]
     return Inspector(
-        index=fixture_index(), discovery=fixture_discovery(),
-        content=fixture_content(), links=links, assignments=assignments,
-        info_horizon=horizon, run_id=RUN_ID, repository_url=REPOSITORY_URL,
+        index=fixture_index(),
+        discovery=fixture_discovery(),
+        content=fixture_content(),
+        links=links,
+        assignments=assignments,
+        info_horizon=horizon,
+        run_id=RUN_ID,
+        repository_url=REPOSITORY_URL,
     )
 
 
@@ -283,13 +384,15 @@ def test_q5_files_for_a_work_item_at_a_chosen_time():
 
 def test_q5_resolves_snapshot_targets_to_files():
     base = inspector()
-    snapshot_link = link(
-        ids().work_item("github", 10), "snap:guide", LinkRelation.MENTIONS
-    )
+    snapshot_link = link(ids().work_item("github", 10), "snap:guide", LinkRelation.MENTIONS)
     extended = Inspector(
-        index=base.git_index, discovery=base.github_discovery,
-        content=base.content_index, links=(*base.link_records, snapshot_link),
-        assignments=base.topic_assignments, info_horizon=NOW, run_id=RUN_ID,
+        index=base.git_index,
+        discovery=base.github_discovery,
+        content=base.content_index,
+        links=(*base.link_records, snapshot_link),
+        assignments=base.topic_assignments,
+        info_horizon=NOW,
+        run_id=RUN_ID,
         repository_url=REPOSITORY_URL,
     )
 
@@ -341,8 +444,10 @@ def svg_fixture(**overrides):
             {"source": "commit:1", "target": "commit:2", "relation": "PARENT_COMMIT"},
             {"source": "commit:2", "target": "workitem:10", "relation": "MENTIONS"},
             {
-                "source": "workitem:10", "target": "topic:a",
-                "relation": "RELATED_TO", "inferred": True,
+                "source": "workitem:10",
+                "target": "topic:a",
+                "relation": "RELATED_TO",
+                "inferred": True,
             },
         ],
         "meta": {"title": "Slice", "run_id": "run-1", "horizon": "2026-09-20", "gaps": 1},
@@ -370,7 +475,7 @@ def test_svg_distinguishes_inferred_from_factual_links():
 
     assert 'stroke-dasharray="5,3"' in document  # the inferred RELATED_TO edge
     mentions = [line for line in document.splitlines() if "MENTIONS" in line]
-    assert mentions and all('stroke-dasharray' not in line for line in mentions)
+    assert mentions and all("stroke-dasharray" not in line for line in mentions)
 
 
 def test_svg_respects_the_node_budget_and_reports_omissions():
@@ -385,7 +490,11 @@ def test_svg_respects_the_node_budget_and_reports_omissions():
 
 def test_svg_handles_an_empty_slice_honestly():
     document = render_slice_svg(
-        commits=[], work_items=[], topics=[], files=[], links=[],
+        commits=[],
+        work_items=[],
+        topics=[],
+        files=[],
+        links=[],
         meta={"title": "Empty", "run_id": "run-0", "horizon": "never", "gaps": 2},
     )
 

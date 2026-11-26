@@ -7,18 +7,15 @@ and horizon gating are fully reproducible.
 
 from __future__ import annotations
 
-import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from repo_history.budgets import BudgetExceeded, BudgetLedger
-from repo_history.events import EventKind, IngestEvent
-from repo_history.git import ClockSkew, CommitRecord, GitSelection
-from repo_history.github import GitHubDiscovery
-from repo_history.ids import IdFactory
-from repo_history.models import (
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.events import EventKind, IngestEvent
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import (
     Budgets,
     CoverageGap,
     CoverageStatus,
@@ -26,7 +23,7 @@ from repo_history.models import (
     RepositorySpec,
     TimeWindow,
 )
-from repo_history.orchestration import (
+from synirmos.runtime.orchestration import (
     CheckpointStore,
     EventJournal,
     JournalCorrupted,
@@ -37,8 +34,10 @@ from repo_history.orchestration import (
     TemporalCoordinator,
     git_selection_events,
 )
+from synirmos.sources.git import ClockSkew, CommitRecord, GitSelection
+from synirmos.sources.github import GitHubDiscovery
 
-UTC = timezone.utc
+UTC = UTC
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
 DAY_ONE = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
 DAY_TWO = datetime(2026, 9, 14, 11, 0, tzinfo=UTC)
@@ -161,17 +160,11 @@ def manifest(run_id: str = "run-1") -> JournalManifest:
 def test_git_selection_events_emit_baseline_and_commit_events():
     boundary = commit("b" * 40, committed_at=T0)
     first = commit("c" * 40, parents=(boundary.sha,), committed_at=DAY_ONE)
-    merge = commit(
-        "d" * 40, parents=(first.sha, "e" * 40), committed_at=DAY_TWO, merge=True
-    )
+    merge = commit("d" * 40, parents=(first.sha, "e" * 40), committed_at=DAY_TWO, merge=True)
     skew = ClockSkew(commit_sha=first.sha, parent_sha=boundary.sha, delta_seconds=-30)
-    git_selection = selection(
-        selected=(first, merge), boundary=(boundary,), skews=(skew,)
-    )
+    git_selection = selection(selected=(first, merge), boundary=(boundary,), skews=(skew,))
 
-    events = git_selection_events(
-        git_selection, IdFactory(REPOSITORY_URL), observed_at=NOW
-    )
+    events = git_selection_events(git_selection, IdFactory(REPOSITORY_URL), observed_at=NOW)
 
     by_source = {item.source_id: item for item in events}
     assert set(by_source) == {
@@ -208,9 +201,7 @@ def test_git_selection_events_are_deterministic():
     first = git_selection_events(git_selection, ids, observed_at=NOW)
     second = git_selection_events(git_selection, ids, observed_at=NOW)
     assert first == second
-    assert [item.source_id for item in first] == sorted(
-        item.source_id for item in first
-    )
+    assert [item.source_id for item in first] == sorted(item.source_id for item in first)
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +230,7 @@ def test_journal_skips_identical_duplicates_but_keeps_corrections(tmp_path):
     assert journal.append([original]) == {"events": 1, "gaps": 0}
     assert journal.append([original]) == {"events": 0, "gaps": 0}
 
-    correction = original.model_copy(
-        update={"observed_at": NOW + timedelta(hours=1)}
-    )
+    correction = original.model_copy(update={"observed_at": NOW + timedelta(hours=1)})
     assert journal.append([correction]) == {"events": 1, "gaps": 0}
     assert [item.observed_at for item in journal.read().events] == [
         NOW,
@@ -264,13 +253,9 @@ def test_journal_rejects_a_manifest_from_another_configuration(tmp_path):
     EventJournal.create(path, manifest())
 
     with pytest.raises(JournalMismatch):
-        EventJournal.open_existing(
-            path, repository_id="repo:other", config_fingerprint="f" * 64
-        )
+        EventJournal.open_existing(path, repository_id="repo:other", config_fingerprint="f" * 64)
     with pytest.raises(JournalMismatch):
-        EventJournal.open_existing(
-            path, repository_id="repo:abc123", config_fingerprint="0" * 64
-        )
+        EventJournal.open_existing(path, repository_id="repo:abc123", config_fingerprint="0" * 64)
     with pytest.raises(JournalMismatch):
         EventJournal.create(path, manifest())
 
@@ -321,9 +306,7 @@ def test_checkpoint_detects_a_diverged_journal(tmp_path):
     other = EventJournal(tmp_path / "other.jsonl")
     EventJournal.create(other.path, manifest(run_id="run-1"))
     other.append([event("different")])
-    diverged = other.read().model_copy(
-        update={"manifest": other.read().manifest}
-    )
+    diverged = other.read().model_copy(update={"manifest": other.read().manifest})
     assert diverged.events != journal.read().events
     with pytest.raises(JournalDiverged):
         store.record("run-1", "github", BudgetLedger(Budgets()), diverged)
@@ -371,9 +354,7 @@ def test_collect_orders_events_stably_regardless_of_arrival_order():
     second = coordinator.collect(list(reversed(events)))
 
     assert first == second
-    assert [item.order_key for item in first.ordered] == sorted(
-        item.order_key for item in events
-    )
+    assert [item.order_key for item in first.ordered] == sorted(item.order_key for item in events)
     assert [(item.source, item.source_id) for item in first.ordered] == [
         ("aaa", "b"),
         ("test", "a"),
@@ -398,9 +379,7 @@ def test_collect_resolves_conflicting_observations_causally():
 
     result = coordinator.collect([correction, stale])
 
-    assert [item.payload for item in result.effective] == [
-        {"source_id": "item", "revised": True}
-    ]
+    assert [item.payload for item in result.effective] == [{"source_id": "item", "revised": True}]
     assert result.superseded == ("same",)
     assert len(result.ordered) == 2
     assert all(item in (stale, correction) for item in result.ordered)
@@ -477,9 +456,7 @@ def test_bootstrap_partitions_boundary_state_from_window_replay():
     commit_event = event("tip", kind=EventKind.COMMIT, event_time=DAY_ONE)
     observed = event("item", kind=EventKind.WORK_ITEM_OBSERVED, event_time=NOW)
 
-    bootstrap = coordinator.bootstrap(
-        coordinator.collect([observed, commit_event, baseline])
-    )
+    bootstrap = coordinator.bootstrap(coordinator.collect([observed, commit_event, baseline]))
 
     assert [item.source_id for item in bootstrap.baseline] == ["base"]
     assert [item.source_id for item in bootstrap.ordered] == ["tip", "item"]
@@ -503,9 +480,7 @@ def test_visible_at_hides_future_information():
 
 def test_future_observations_cannot_seed_past_decisions():
     coordinator = TemporalCoordinator(repository())
-    commit_event = event(
-        "tip", kind=EventKind.COMMIT, event_time=DAY_ONE, horizon=DAY_ONE
-    )
+    commit_event = event("tip", kind=EventKind.COMMIT, event_time=DAY_ONE, horizon=DAY_ONE)
     future_label = event(
         "label",
         event_time=NOW,
@@ -533,8 +508,13 @@ def test_interrupted_replay_matches_a_single_replay(tmp_path):
     )
     remote = (
         event("item", event_time=DAY_ONE, observed_at=NOW),
-        event("item", event_time=DAY_ONE, observed_at=NOW + timedelta(hours=1),
-              event_id="remote-correction", payload={"revised": True}),
+        event(
+            "item",
+            event_time=DAY_ONE,
+            observed_at=NOW + timedelta(hours=1),
+            event_id="remote-correction",
+            payload={"revised": True},
+        ),
     )
 
     uninterrupted = EventJournal.create(tmp_path / "full.jsonl", manifest())
@@ -594,15 +574,11 @@ def test_stage_runner_skips_completed_stages_on_resume(tmp_path):
         calls.append("git")
         return [event("tip", kind=EventKind.COMMIT)], [gap("git-gap")]
 
-    runner = StageRunner.resume_or_create(
-        journal_path, checkpoint_path, manifest(), Budgets()
-    )
+    runner = StageRunner.resume_or_create(journal_path, checkpoint_path, manifest(), Budgets())
     runner.run_stage("git", git_stage)
     assert calls == ["git"]
 
-    resumed = StageRunner.resume_or_create(
-        journal_path, checkpoint_path, manifest(), Budgets()
-    )
+    resumed = StageRunner.resume_or_create(journal_path, checkpoint_path, manifest(), Budgets())
     snapshot = resumed.run_stage("git", git_stage)
 
     assert calls == ["git"]
@@ -623,9 +599,7 @@ def test_stage_runner_resumes_after_a_budget_failure(tmp_path):
         runner_ledger.reserve_api()
         return [event("tip")], []
 
-    runner = StageRunner.resume_or_create(
-        journal_path, checkpoint_path, manifest(), limits
-    )
+    runner = StageRunner.resume_or_create(journal_path, checkpoint_path, manifest(), limits)
     runner_ledger = runner.ledger
     with pytest.raises(BudgetExceeded):
         runner.run_stage("github", flaky_stage)
@@ -648,9 +622,7 @@ def test_stage_runner_resumes_after_a_budget_failure(tmp_path):
 def test_stage_runner_rejects_a_foreign_run_identity(tmp_path):
     journal_path = tmp_path / "events.jsonl"
     checkpoint_path = tmp_path / "checkpoint.json"
-    runner = StageRunner.resume_or_create(
-        journal_path, checkpoint_path, manifest(), Budgets()
-    )
+    runner = StageRunner.resume_or_create(journal_path, checkpoint_path, manifest(), Budgets())
     runner.run_stage("git", lambda: ([event("tip")], []))
 
     with pytest.raises(JournalMismatch):
@@ -673,9 +645,7 @@ def test_build_manifest_records_selection_counters_and_gaps():
             ),
         ),
     )
-    events = git_selection_events(
-        git_selection, IdFactory(REPOSITORY_URL), observed_at=NOW
-    )
+    events = git_selection_events(git_selection, IdFactory(REPOSITORY_URL), observed_at=NOW)
     result = coordinator.collect(events)
     ledger = BudgetLedger(Budgets())
     ledger.reserve_commit(1)
@@ -708,14 +678,15 @@ def test_orchestration_settings_have_bounded_defaults():
     settings = OrchestrationSettings()
     assert settings.journal_file == "data/journal/events.jsonl"
     assert settings.checkpoint_file == "data/journal/checkpoint.json"
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         OrchestrationSettings(journal_file="  ")
 
 
 def test_settings_are_loaded_from_toml():
-    from repo_history.config import load_config
+    from synirmos.core.config import load_config
+    from tests.support import TEST_CONFIG
 
-    config = load_config()
+    config = load_config(TEST_CONFIG)
     assert config.orchestration.journal_file == "data/journal/events.jsonl"
     assert config.orchestration.checkpoint_file == "data/journal/checkpoint.json"
 

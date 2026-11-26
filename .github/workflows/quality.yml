@@ -1,0 +1,41 @@
+name: Python quality
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.21"
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - name: Install locked dependencies
+        run: uv sync --locked --dev --python ${{ matrix.python }}
+      - name: Lint, format, coverage, metrics, and package checks
+        run: uv run --locked python scripts/check.py
+      - name: Publish metrics summary
+        if: always()
+        run: |
+          if [ -f reports/metrics.md ]; then
+            cat reports/metrics.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-quality-${{ matrix.python }}
+          path: reports/

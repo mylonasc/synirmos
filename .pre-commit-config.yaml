@@ -1,0 +1,23 @@
+default_install_hook_types: [pre-commit, pre-push]
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Python lint
+        entry: uv run --locked ruff check
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: ruff-format
+        name: Python format
+        entry: uv run --locked ruff format --check
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: quality
+        name: Python quality gates
+        entry: uv run --locked python scripts/check.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

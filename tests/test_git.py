@@ -8,23 +8,23 @@ network access or Git CLI is involved.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pygit2
 import pytest
 
-from repo_history.budgets import BudgetExceeded, BudgetLedger
-from repo_history.git import (
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.ids import IdFactory
+from synirmos.core.models import Budgets, GitSettings, TimeWindow
+from synirmos.sources.git import (
     GitHistory,
     GitIndex,
     GitSelection,
     MissingParentObject,
     summarize,
 )
-from repo_history.ids import IdFactory
-from repo_history.models import Budgets, GitSettings, TimeWindow
 
-UTC = timezone.utc
+UTC = UTC
 WINDOW = TimeWindow(
     start=datetime(2026, 9, 13, tzinfo=UTC),
     end=datetime(2026, 9, 15, tzinfo=UTC),
@@ -54,9 +54,7 @@ class GitFixture:
         builder = self.repo.TreeBuilder()
         for name, value in spec.items():
             if isinstance(value, dict):
-                builder.insert(
-                    name, self._tree(value), int(pygit2.enums.FileMode.TREE)
-                )
+                builder.insert(name, self._tree(value), int(pygit2.enums.FileMode.TREE))
                 continue
             content, mode = value  # type: ignore[misc]
             if int(mode) == int(pygit2.enums.FileMode.COMMIT):
@@ -85,9 +83,7 @@ class GitFixture:
             _seconds(author_at or at),
             author_offset,
         )
-        committer = pygit2.Signature(
-            "Fixture Committer", "committer@example.test", _seconds(at), 0
-        )
+        committer = pygit2.Signature("Fixture Committer", "committer@example.test", _seconds(at), 0)
         oid = self.repo.create_commit(
             ref,
             author,
@@ -146,8 +142,7 @@ def test_root_commit_is_diffed_against_the_empty_tree(fixture: GitFixture):
     assert all(change.parent_sha is None for change in changes)
     assert all(change.old_oid is None for change in changes)
     assert all(
-        change.source_url == f"{REPOSITORY_URL}/blob/{root}/{change.path}"
-        for change in changes
+        change.source_url == f"{REPOSITORY_URL}/blob/{root}/{change.path}" for change in changes
     )
 
 
@@ -192,9 +187,7 @@ def test_selection_includes_side_branches_and_merge_commits(fixture: GitFixture)
         any(snapshot.commit_sha == commit.sha for snapshot in index.snapshots)
         for commit in selection.selected_commits
     )
-    assert {
-        snapshot.path for snapshot in index.snapshots if snapshot.is_baseline
-    } == {"base.txt"}
+    assert {snapshot.path for snapshot in index.snapshots if snapshot.is_baseline} == {"base.txt"}
     merge_changes = {change.path: change for change in index.changes if change.commit_sha == merge}
     assert set(merge_changes) == {"topic.txt"}
     assert merge_changes["topic.txt"].comparison == "first-parent"
@@ -212,9 +205,7 @@ def test_selection_uses_committer_time(fixture: GitFixture):
     )
     selection = fixture.select(commit)
     assert selection.selected_shas == (commit,)
-    assert selection.selected_commits[0].authored_at == datetime(
-        2026, 9, 20, tzinfo=UTC
-    )
+    assert selection.selected_commits[0].authored_at == datetime(2026, 9, 20, tzinfo=UTC)
     assert selection.selected_commits[0].committed_at == DAY_ONE
 
 
@@ -321,10 +312,7 @@ def test_tree_modes_and_nested_paths_are_preserved(fixture: GitFixture):
 
 
 def test_binary_lfs_and_oversized_content_are_flagged(fixture: GitFixture):
-    lfs_pointer = (
-        b"version https://git-lfs.github.com/spec/v1\n"
-        b"oid sha256:deadbeef\nsize 1234\n"
-    )
+    lfs_pointer = b"version https://git-lfs.github.com/spec/v1\noid sha256:deadbeef\nsize 1234\n"
     commit = fixture.commit(
         "content",
         {
@@ -364,9 +352,9 @@ def test_clock_skew_is_reported_and_tolerance_applies(fixture: GitFixture):
     )
 
     strict = fixture.select(child)
-    assert [(skew.commit_sha, skew.parent_sha, skew.delta_seconds) for skew in strict.clock_skews] == [
-        (child, parent, 3600)
-    ]
+    assert [
+        (skew.commit_sha, skew.parent_sha, skew.delta_seconds) for skew in strict.clock_skews
+    ] == [(child, parent, 3600)]
     assert "git-clock-skew" in {gap.code for gap in strict.gaps}
 
     tolerant = fixture.select(child, skew_tolerance_seconds=3600)
@@ -376,12 +364,8 @@ def test_clock_skew_is_reported_and_tolerance_applies(fixture: GitFixture):
 
 def test_depth_limit_is_explicitly_truncated(fixture: GitFixture):
     first = fixture.commit("first", {"f.txt": ("1\n", 0o100644)}, at=DAY_ONE)
-    second = fixture.commit(
-        "second", {"f.txt": ("2\n", 0o100644)}, parents=(first,), at=DAY_TWO
-    )
-    third = fixture.commit(
-        "third", {"f.txt": ("3\n", 0o100644)}, parents=(second,), at=DAY_THREE
-    )
+    second = fixture.commit("second", {"f.txt": ("2\n", 0o100644)}, parents=(first,), at=DAY_TWO)
+    third = fixture.commit("third", {"f.txt": ("3\n", 0o100644)}, parents=(second,), at=DAY_THREE)
 
     selection = fixture.select(third, max_depth=1)
     assert selection.selected_shas == (second, third)
@@ -397,18 +381,12 @@ def test_depth_limit_is_explicitly_truncated(fixture: GitFixture):
 
 def test_missing_parent_object_is_a_coverage_gap(fixture: GitFixture):
     parent = fixture.commit("parent", {"f.txt": ("1\n", 0o100644)}, at=DAY_ONE)
-    child = fixture.commit(
-        "child", {"f.txt": ("2\n", 0o100644)}, parents=(parent,), at=DAY_TWO
-    )
+    child = fixture.commit("child", {"f.txt": ("2\n", 0o100644)}, parents=(parent,), at=DAY_TWO)
 
-    object_path = os.path.join(
-        fixture.repo.path, "objects", parent[:2], parent[2:]
-    )
+    object_path = os.path.join(fixture.repo.path, "objects", parent[:2], parent[2:])
     os.remove(object_path)
 
-    reopened = GitHistory.open(
-        str(fixture.repo.path), repository_url=REPOSITORY_URL
-    )
+    reopened = GitHistory.open(str(fixture.repo.path), repository_url=REPOSITORY_URL)
     selection = reopened.select(child, WINDOW)
     assert selection.selected_shas == (child,)
     assert selection.boundary_shas == ()
@@ -456,14 +434,10 @@ def test_branch_containment_is_reported(fixture: GitFixture):
         ref="refs/heads/topic",
     )
     # ``main`` fast-forwards onto the same linear history as ``topic``.
-    fixture.repo.create_reference(
-        "refs/heads/main", pygit2.Oid(hex=anchor), force=True
-    )
+    fixture.repo.create_reference("refs/heads/main", pygit2.Oid(hex=anchor), force=True)
     fixture.branch("release", base)
 
-    observations = {
-        item.name: item for item in fixture.history.branches(anchor)
-    }
+    observations = {item.name: item for item in fixture.history.branches(anchor)}
     assert observations["main"].contains_anchor is True
     assert observations["topic"].contains_anchor is True
     assert observations["release"].contains_anchor is False
@@ -478,9 +452,7 @@ def test_worktrees_include_main_and_linked_checkout(fixture: GitFixture, tmp_pat
         fixture.repo.references["refs/heads/main"],
     )
 
-    observations = {
-        item.identifier: item for item in fixture.history.worktrees()
-    }
+    observations = {item.identifier: item for item in fixture.history.worktrees()}
     assert observations["main"].is_main is True
     assert observations["main"].bare is False
     assert observations["secondary"].is_main is False
@@ -491,9 +463,7 @@ def test_worktrees_include_main_and_linked_checkout(fixture: GitFixture, tmp_pat
 
 def test_index_charges_budgets_for_selected_and_boundary_commits(fixture: GitFixture):
     base = fixture.commit("base", {"f.txt": ("1\n", 0o100644)}, at=OUTSIDE)
-    tip = fixture.commit(
-        "tip", {"f.txt": ("2\n", 0o100644)}, parents=(base,), at=DAY_ONE
-    )
+    tip = fixture.commit("tip", {"f.txt": ("2\n", 0o100644)}, parents=(base,), at=DAY_ONE)
     selection = fixture.select(tip)
 
     ledger = BudgetLedger(limits=Budgets(max_commits=3))
@@ -507,9 +477,7 @@ def test_index_charges_budgets_for_selected_and_boundary_commits(fixture: GitFix
 
 def test_summary_is_deterministic(fixture: GitFixture):
     base = fixture.commit("base", {"f.txt": ("1\n", 0o100644)}, at=OUTSIDE)
-    tip = fixture.commit(
-        "tip", {"f.txt": ("2\n", 0o100644)}, parents=(base,), at=DAY_ONE
-    )
+    tip = fixture.commit("tip", {"f.txt": ("2\n", 0o100644)}, parents=(base,), at=DAY_ONE)
     settings = GitSettings(rename_threshold=60)
     first = summarize(fixture.history.index(fixture.select(tip), settings=settings))
     second = summarize(fixture.history.index(fixture.select(tip), settings=settings))
@@ -526,16 +494,12 @@ def test_ensure_anchor_deepens_then_stops(fixture: GitFixture, monkeypatch):
     monkeypatch.setattr(
         fixture.history, "fetch", lambda *, depth, remote="origin": calls.append(depth)
     )
-    assert fixture.history.ensure_anchor(
-        "a" * 40, initial_depth=8, max_depth=32
-    ) is True
+    assert fixture.history.ensure_anchor("a" * 40, initial_depth=8, max_depth=32) is True
     assert calls == [8, 16]
 
     monkeypatch.setattr(fixture.history, "has_commit", lambda revision: False)
     calls.clear()
-    assert fixture.history.ensure_anchor(
-        "a" * 40, initial_depth=8, max_depth=32
-    ) is False
+    assert fixture.history.ensure_anchor("a" * 40, initial_depth=8, max_depth=32) is False
     assert calls == [8, 16, 32]
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from repo_history.budgets import BudgetExceeded, BudgetLedger
-from repo_history.models import Budgets
+from synirmos.core.budgets import BudgetExceeded, BudgetLedger
+from synirmos.core.models import Budgets
 
 
 def _ledger(**overrides) -> BudgetLedger:

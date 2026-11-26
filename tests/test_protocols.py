@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 
-from repo_history import (
+from synirmos import (
     Budgets,
     CoverageGap,
     CoverageStatus,
@@ -15,7 +15,7 @@ from repo_history import (
     TimeWindow,
     load_config,
 )
-from repo_history.protocols import (
+from synirmos.core.protocols import (
     CodeParser,
     DocumentParser,
     GraphSink,
@@ -24,27 +24,41 @@ from repo_history.protocols import (
     RepositorySource,
     WorkItemProvider,
 )
+from tests.support import TEST_CONFIG
 
 
 def test_public_api_imports_without_credentials():
-    assert load_config().repository.name == "tf_gnns"
+    assert load_config(TEST_CONFIG).repository.name == "project"
     assert all(
         value is not None
         for value in (
-            Budgets, CoverageGap, CoverageStatus, EventKind,
-            IngestEvent, RepositorySpec, RuntimeConfig, TimeWindow,
+            Budgets,
+            CoverageGap,
+            CoverageStatus,
+            EventKind,
+            IngestEvent,
+            RepositorySpec,
+            RuntimeConfig,
+            TimeWindow,
         )
     )
 
 
 def test_protocols_are_runtime_checkable_and_small():
     for protocol in (
-        RepositorySource, WorkItemProvider, DocumentParser, CodeParser,
-        Labeler, RelationshipResolver, GraphSink,
+        RepositorySource,
+        WorkItemProvider,
+        DocumentParser,
+        CodeParser,
+        Labeler,
+        RelationshipResolver,
+        GraphSink,
     ):
         assert hasattr(protocol, "_is_runtime_protocol")
     assert list(inspect.signature(GraphSink.write_entities).parameters) == [
-        "self", "entities", "analysis_run_id"
+        "self",
+        "entities",
+        "analysis_run_id",
     ]
 
 
