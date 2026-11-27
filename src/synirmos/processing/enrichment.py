@@ -15,7 +15,6 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -25,6 +24,17 @@ from pydantic import Field, field_validator
 from ..core.analysis import AnalysisResult, DecisionStatus, Provenance
 from ..core.budgets import BudgetExceeded, BudgetLedger
 from ..core.models import CoverageGap, CoverageStatus, FrozenModel, LLMSettings, ensure_utc
+from .agentic.common import (
+    AgentCache,
+    AgentConsentError,
+    AgentError,
+    AgentModelError,
+    cache_key,
+    check_model,
+    estimate_tokens,
+    parse_json_object,
+    require_consent,
+)
 
 __all__ = [
     "ENRICHMENT_SCHEMA_VERSION",
@@ -48,17 +58,11 @@ MAX_CONTEXT_CHARS = 4000
 MAX_SUMMARY_CHARS = 2000
 
 
-class EnrichmentError(RuntimeError):
-    """Base class for enrichment failures that never fabricate output."""
-
-
-class EnrichmentConsentError(EnrichmentError):
-    def __init__(self) -> None:
-        super().__init__("LLM enrichment requires enabled=true and explicit privacy_consent=true")
-
-
-class EnrichmentModelError(EnrichmentError):
-    """The injected model is missing, unsuitable, or unreachable."""
+# Agent plumbing lives in processing.agentic.common; these aliases keep
+# existing imports working while new agents import from there directly.
+EnrichmentError = AgentError
+EnrichmentConsentError = AgentConsentError
+EnrichmentModelError = AgentModelError
 
 
 class LLMTopicProposal(FrozenModel):
@@ -104,24 +108,6 @@ class LLMLinkProposal(FrozenModel):
 # ---------------------------------------------------------------------------
 
 
-def require_consent(settings: LLMSettings) -> None:
-    if not settings.enabled or not settings.privacy_consent:
-        raise EnrichmentConsentError()
-
-
-def check_model(model: Any) -> str:
-    """Fail closed unless ``model`` is an invokable LangChain chat model."""
-
-    if not isinstance(model, BaseChatModel):
-        raise EnrichmentModelError(
-            f"Expected a LangChain BaseChatModel, got {type(model).__name__}"
-        )
-    if not callable(getattr(model, "invoke", None)):
-        raise EnrichmentModelError("Chat model has no invokable interface")
-    name = getattr(model, "model_name", None) or getattr(model, "model", None)
-    return str(name or type(model).__name__)
-
-
 def build_chat_model(settings: LLMSettings) -> BaseChatModel:
     """Build the documented real provider model for ``settings``.
 
@@ -152,59 +138,24 @@ def build_chat_model(settings: LLMSettings) -> BaseChatModel:
         raise EnrichmentModelError(f"Could not construct ChatOpenAI: {exc}") from exc
 
 
-def estimate_tokens(text: str) -> int:
-    """Deterministic, dependency-free token estimate for budget bounds."""
-
-    return max(1, len(text) // 4)
-
-
-# ---------------------------------------------------------------------------
-# File-backed proposal cache
-# ---------------------------------------------------------------------------
-
-
 def _cache_key(
     model_id: str,
     prompt_version: str,
     method: str,
     context_hash: str,
 ) -> str:
-    material = "|".join(
-        ["llm-v1", model_id, prompt_version, ENRICHMENT_SCHEMA_VERSION, method, context_hash]
+    return cache_key(
+        namespace="llm-v1",
+        model_id=model_id,
+        prompt_version=prompt_version,
+        schema_version=ENRICHMENT_SCHEMA_VERSION,
+        method=method,
+        context_hash=context_hash,
     )
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-class EnrichmentCache:
+class EnrichmentCache(AgentCache):
     """Persisted proposals keyed by model, prompt, schema, and context."""
-
-    def __init__(self, path: str | Path) -> None:
-        self._path = Path(path)
-        self._records: dict[str, dict[str, Any]] = {}
-        if self._path.is_file():
-            try:
-                payload = json.loads(self._path.read_text(encoding="utf-8"))
-                if isinstance(payload, dict):
-                    self._records = payload
-            except (OSError, ValueError):
-                self._records = {}
-
-    @property
-    def path(self) -> Path:
-        return self._path
-
-    def lookup(self, key: str) -> dict[str, Any] | None:
-        return self._records.get(key)
-
-    def store(self, key: str, record: dict[str, Any]) -> None:
-        self._records[key] = record
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self._path.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(self._records, sort_keys=True, separators=(",", ":")),
-            encoding="utf-8",
-        )
-        temporary.replace(self._path)
 
 
 # ---------------------------------------------------------------------------
@@ -250,20 +201,7 @@ class Enricher:
             )
         return response
 
-    @staticmethod
-    def _parse_json(content: Any) -> dict[str, Any] | None:
-        if not isinstance(content, str):
-            return None
-        text = content.strip()
-        for candidate in (text, _strip_fences(text)):
-            try:
-                payload = json.loads(candidate)
-            except ValueError:
-                continue
-            if isinstance(payload, dict):
-                return payload
-        return None
-
+    # ------------------------------------------------------------------ internals
     def _attempt(
         self,
         method: str,
@@ -339,7 +277,7 @@ class Enricher:
                 )
             response = self._invoke(messages)
             usage = dict(getattr(response, "usage_metadata", None) or {})
-            payload = self._parse_json(response.content)
+            payload = parse_json_object(response.content)
             if payload is None:
                 last_error = "model output was not a JSON object"
                 continue
@@ -565,15 +503,6 @@ class Enricher:
             extra_instructions=instructions,
             allowed_ids=frozenset(candidate_targets),
         )
-
-
-def _strip_fences(text: str) -> str:
-    if text.startswith("```"):
-        lines = text.splitlines()
-        if len(lines) >= 2:
-            closing = len(lines) if lines[-1].strip() != "```" else -1
-            return "\n".join(lines[1:closing]).strip()
-    return text
 
 
 def gap_for_unavailable_history(subject: str, detail: str) -> CoverageGap:
