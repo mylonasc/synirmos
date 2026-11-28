@@ -20,6 +20,7 @@ def main() -> None:
             "--cov-report=html",
         ],
         ["pytest", "examples/tf_gnns/tests"],
+        ["pytest", "examples/onto_kg/tests"],
         [sys.executable, "scripts/metrics.py"],
         ["uv", "build"],
         [sys.executable, "scripts/check_package.py"],

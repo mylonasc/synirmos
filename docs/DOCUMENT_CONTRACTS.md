@@ -121,6 +121,13 @@ chunk/occurrence identity, limits, immutability and JSON round-trips.
 ports and relative/absolute imports) and imports the new modules in a fresh
 process to detect accidental implementation dependency loading.
 
+`examples/onto_kg/notebooks/D0_contracts.ipynb` demonstrates these distinctions
+with assertions. `uv run pytest examples/onto_kg/tests -q` executes it and
+notebook 00 in fresh processes, in cell order, without Jupyter or model access;
+the full `scripts/check.py` gate includes this regression suite. The installed-
+wheel smoke also imports the new nested ports and exercises content/identity
+values outside the source checkout.
+
 Graph/profile/scope/write contracts, authorization intersection, context/exposure
 results, read-session lifecycle, extraction candidates/assertions and their
 retry identities, and physical-work/deadline capability outcomes remain within

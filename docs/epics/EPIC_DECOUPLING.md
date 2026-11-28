@@ -23,18 +23,25 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   PR #21 is still open and will include the implementation checkpoints as well
   as its execution instructions; no PR is merged automatically. First increment:
   document/revision/content identities, byte spans, explicit time semantics and
-  narrow document-source/content-reader ports. D0 is not complete.
+  narrow document-source/content-reader ports are implemented, along with the
+  first increment's executable notebook. D0 is not complete.
 - **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
   and `core/ports/documents.py`: immutable versioned values, framed qualified
   identity, conservative byte-count limits, original-byte span integrity, and
   independent source-valid/capture/justified-knowledge times. Existing repository
   APIs/IDs are unchanged. See [the contract specification](../DOCUMENT_CONTRACTS.md).
   Core boundary checks now recurse into ports and test fresh-process imports.
+- **Checkpoint delivery:** contract implementation/test commit `6350c5b` is pushed.
+  `examples/onto_kg/notebooks/D0_contracts.ipynb` now demonstrates source-qualified
+  identity, collection independence, capture retries, time eligibility, byte spans,
+  chunk occurrences and page limits with assertions. The full gate executes it
+  and notebook 00 in fresh processes (six code cells each) without Jupyter;
+  installed-wheel smoke exercises new core values and nested ports as well.
 - **Checkpoint verification:** `uv run python scripts/check.py` passes: Ruff
   lint/format, 396 tests, 92.32% coverage, example regression, metrics, build and
-  installed-wheel smoke. New contract modules have complete test coverage.
-  `git diff --check` passes. Notebook execution will be added in the next checkpoint.
-- **Next implementation:** add the first increment's executable notebook, then neutral
+  installed-wheel smoke, plus three ONTO-KG notebook checks. New contract modules
+  have complete test coverage. `git diff --check` passes.
+- **Next implementation:** neutral
   graph/context/extraction contracts, trusted authorization/collection/approval
   scope, read-session lifetimes and logical versus physical-work budgets. Finish
   D0's executable examples, JSON round-trips and recursive import-boundary tests
@@ -50,7 +57,7 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
 - **Parsing/chunking direction:** evaluate reusable deterministic LangChain
   parser/splitter adapters in D2, preserving neutral contracts, byte-span/source
   maps, explicit capture and bounded dependencies; no new dependency is added by
-  this instructions-only change.
+  these D0 value/protocol checkpoints. Actual source/parsing adapters remain D2.
 - **Deferred technical debt (not new whole-epic blockers):**
   - [#19](https://github.com/mylonasc/synirmos/issues/19): separate remote-authoritative
     Git capture/owned cache policy from local immutable-object reading; the full

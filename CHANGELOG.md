@@ -23,6 +23,9 @@ available on PyPI.
   occurrence identities, explicit validity/observation/knowledge times, bounded
   document batches and narrow source/content-reader ports. These are additive
   values/interfaces, not a capture/parser implementation or completion of D0.
+- D0 document/time notebook with automated plain-Python cell execution for
+  shipped ONTO-KG notebooks in the full quality gate; installed-wheel smoke
+  coverage for the new core values and nested ports.
 
 ### Changed
 
