@@ -128,7 +128,10 @@ the full `scripts/check.py` gate includes this regression suite. The installed-
 wheel smoke also imports the new nested ports and exercises content/identity
 values outside the source checkout.
 
-Graph/profile/scope/write contracts, authorization intersection, context/exposure
-results, read-session lifecycle, extraction candidates/assertions and their
-retry identities, and physical-work/deadline capability outcomes remain within
-#11. None is deferred as techdebt or implied implemented by these primitives.
+The subsequent D0 increments define graph/profile/scope/write values, trusted
+grant intersection, context/exposure results, read-session lifecycle, extraction
+candidate/assertion/retry identity and physical-work capability outcomes in
+`GRAPH_CONTEXT_CONTRACTS.md` and `EXTRACTION_CONTRACTS.md`. These document primitives
+alone do not implement those boundaries or their concrete adapters. Consult the
+epic execution status for verified delivery rather than inferring completion
+from this initial checkpoint's presence.

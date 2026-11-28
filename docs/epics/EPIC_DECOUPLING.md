@@ -30,7 +30,9 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   requests, explicit snapshot pins and separate logical/physical read budgets.
   Empty selection means no access, never an implicit wildcard. Native adapters,
   real authorization and durable publication remain D1/D3 responsibilities.
-  Context/exposure/read-session contracts are now in progress, not yet verified.
+  Graph/scope commit `7a410fb` is pushed. Context/exposure/read-session and
+  extraction value/port contracts are now implemented and tested as well;
+  the notebook and installed-wheel checks still need their final D0 extensions.
 - **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
   and `core/ports/documents.py`: immutable versioned values, framed qualified
   identity, conservative byte-count limits, original-byte span integrity, and
@@ -43,14 +45,17 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   chunk occurrences and page limits with assertions. The full gate executes it
   and notebook 00 in fresh processes (six code cells each) without Jupyter;
   installed-wheel smoke exercises new core values and nested ports as well.
-- **Checkpoint verification (graph/scope increment):** `uv run python scripts/check.py`
-  passes: Ruff lint/format, 427 tests, 92.64% coverage, example regression, metrics, build and
+- **Checkpoint verification (context/extraction increment):** full gates pass with
+  449 tests, 93.12% coverage, example regression, metrics, build and
   installed-wheel smoke, plus three ONTO-KG notebook checks. New contract modules
-  have complete test coverage. `git diff --check` passes.
-- **Next implementation:** context/exposure/extraction contracts and read-session
-  lifetimes, with corresponding notebook coverage. Finish
-  D0's executable examples, JSON round-trips and recursive import-boundary tests
-  before moving to D1/D2. Existing repository contracts/IDs remain unchanged.
+  have complete test coverage. Validators are split by responsibility; fast
+  lint/format and all 449 tests pass after that cleanup. `git diff --check` passes.
+  Pydantic 2.8.2 imports/property round-trips/JSON schemas also pass in isolation;
+  the existing dependency floor is preserved.
+- **Next implementation:** extend D0's notebook and installed-wheel smoke for
+  the remaining scope/context/extraction seams, then run the final gates and
+  review D0/#11 acceptance before starting D1/D2. Existing repository contracts/
+  IDs remain unchanged; no storage/provider/agent implementation is implied.
 - **Remaining:** D0 → D1/D2 → D3; complete #2 before dependent feature sign-off;
   #3/#4 → D4/#5 → #6; D5 and #7 → D6 → final #8, honoring the exact prerequisites
   in section 9 rather than adding a whole-epic dependency.

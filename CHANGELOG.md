@@ -26,6 +26,12 @@ available on PyPI.
 - D0 document/time notebook with automated plain-Python cell execution for
   shipped ONTO-KG notebooks in the full quality gate; installed-wheel smoke
   coverage for the new core values and nested ports.
+- D0 graph/profile/write values, trusted finite-grant intersection, deeply
+  immutable JSON properties, explicit physical-budget capabilities, complete
+  scoped context/exposure receipts and read-session ports. Extraction contracts
+  separate proposals, retry-stable operations, canonical assertion supports and
+  trusted review metadata; real adapters/agents/policy enforcement remain later
+  slices. No legacy IDs or dependency floors change.
 
 ### Changed
 

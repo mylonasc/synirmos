@@ -15,7 +15,7 @@ class UnsupportedReadError(RuntimeError):
     """A requested guarantee cannot be enforced; never silently weaken it."""
 
 
-class ReadLimitError(ValueError):
+class ReadLimitError(RuntimeError):
     """Measured work or returned payload exceeds the negotiated budget."""
 
     def __init__(self, message: str, *, usage: ReadUsage | None = None) -> None:

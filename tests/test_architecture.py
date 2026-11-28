@@ -115,6 +115,10 @@ import synirmos.core.graph
 import synirmos.core.limits
 import synirmos.core.ports.documents
 import synirmos.core.ports.graph
+import synirmos.core.context
+import synirmos.core.extraction
+import synirmos.core.ports.knowledge
+import synirmos.core.ports.extraction
 for name in sys.modules:
     assert not name.startswith((
         'gestaltdb', 'pygit2', 'langchain', 'synirmos.storage', 'synirmos.sources',

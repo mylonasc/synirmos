@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from enum import StrEnum
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import (
     ConfigDict,
@@ -12,6 +12,7 @@ from pydantic import (
     JsonValue,
     RootModel,
     StrictInt,
+    WithJsonSchema,
     field_validator,
     model_serializer,
     model_validator,
@@ -28,8 +29,10 @@ from .contracts import (
 from .limits import ReadLimits
 from .temporal import ReadPoint, RevisionTiming
 
+_PropertyJSON = Annotated[str, WithJsonSchema({"type": "object", "additionalProperties": True})]
 
-class Properties(RootModel[str]):
+
+class Properties(RootModel[_PropertyJSON]):
     """Deeply immutable JSON object, serialized as an object rather than a string.
 
     Store detached canonical JSON internally; returning a mapping always decodes
@@ -39,7 +42,7 @@ class Properties(RootModel[str]):
 
     model_config = ConfigDict(frozen=True)
 
-    @field_validator("root", mode="before", json_schema_input_type=dict[str, JsonValue])
+    @field_validator("root", mode="before")
     @classmethod
     def object_json(cls, value: object) -> str:
         if not isinstance(value, dict):
