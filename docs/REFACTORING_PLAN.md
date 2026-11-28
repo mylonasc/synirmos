@@ -4,6 +4,20 @@ Status: proposed architecture and staged migration, with initial platform-port
 scaffolding implemented. This is not a claim that the pipeline is already
 provider-neutral, remote-authoritative, or multi-language.
 
+The [document/graph/context decoupling epic](epics/EPIC_DECOUPLING.md) adds a
+document-first implementation track for ONTO-KG and JERE. It delivers selected
+neutral-contract, storage-mapping, and pure-parser seams from P1/P4/P5 without
+claiming completion of those phases or requiring all Git/provider migrations
+first. Remote-authoritative Git and the other provider/language phases below
+remain separately scoped; standalone local-text capture is not a fallback
+authority for repository history.
+
+For the released GestaltDB 0.17 baseline, follow the
+[capability/scale review](GESTALTDB_SCALE_REVIEW.md): reuse native scoped readers,
+transactions, history and selected ontology/reasoning capabilities; benchmark
+batching, commit growth, snapshot costs, candidate work and ANN requirements.
+Those are delivery acceptance criteria, not already integrated optimizations.
+
 ## 1. Decisions and scope
 
 1. **GitHub is the first concrete adapter.** Preserve its existing behavior and

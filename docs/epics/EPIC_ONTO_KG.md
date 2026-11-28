@@ -1,5 +1,29 @@
 # EPIC: Ontology-Driven Knowledge-Graph Construction (ONTO-KG), Documents First
 
+> **Architecture refinement (2026-11-28):** Read
+> [EPIC_DECOUPLING.md](EPIC_DECOUPLING.md) before implementing the remaining
+> slices. It preserves #1–#8 and their feature ownership, adds source-neutral
+> documents, generic graph profiles/scopes, reusable context providers, and
+> explicit dependency gates. Its section 7 supersedes only the identified
+> design assumptions below (Git-only inputs, ontology version on one mutable
+> chunk, run-dependent retry keys, and valid-time-only context reads among them).
+> The original proposal is retained for traceability, not asserted as current
+> implementation. Slice 0 has scaffolding on `onto-kg-feature`; #2 remains open
+> with missing acceptance items. **GitHub Slice 6 (#8) is the final demonstration;
+> this document's Phase 6 governance work is a separate future scope.**
+>
+> Architectural prerequisite tracker: [#10](https://github.com/mylonasc/synirmos/issues/10),
+> indexed implementation slices D0–D6: #11–#17. They complement rather than
+> renumber the original ONTO-KG slices #2–#8; see the decoupling epic's section 9.
+>
+> **GestaltDB 0.17 refinement:** The [released capability/scale review](../GESTALTDB_SCALE_REVIEW.md)
+> supersedes the bespoke-compiler and blanket "no reasoner" assumptions below:
+> reuse native compilation, scoped history/claims, and selected validation or
+> inference adapters behind neutral ports. Domain/range inference is not
+> extraction validation; native equality is not physical merge approval. Exact
+> vector scanning is a bounded reference, not the large-corpus design. Native
+> views, batching and indexes have measured costs; no historical scope is free.
+
 ## 1. Source analysis
 
 Two reference files in `ref_ontokg_files/` (both inspired by Jesús Barrasa's

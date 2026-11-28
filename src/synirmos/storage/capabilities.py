@@ -58,14 +58,25 @@ def check_capabilities(*, backend: str = "lmdb") -> tuple[Capability, ...]:
             "open",
             "put_node",
             "put_edge",
-            "put_node_version",
-            "put_edge_version",
-            "get_node_as_of",
-            "iter_node_versions",
             "create_node_property_index",
             "close",
         )
         missing = [name for name in required if not hasattr(graphdb, name)]
+        temporal = importlib.import_module("gestaltdb.temporal_engine").TemporalEngine
+        for name in (
+            "put_node_version",
+            "put_edge_version",
+            "get_node_version",
+            "get_edge_version",
+            "get_node_as_of",
+            "get_edge_as_of",
+            "iter_node_versions",
+            "iter_edge_versions",
+            "correct_node_version",
+            "correct_edge_version",
+        ):
+            if not hasattr(temporal, name):
+                missing.append(f"TemporalEngine.{name}")
         backend_module = {
             "lmdb": "gestaltdb.kvstores",
             "leveldb": "gestaltdb.kvstores",

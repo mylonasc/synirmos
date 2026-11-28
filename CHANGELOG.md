@@ -15,9 +15,18 @@ available on PyPI.
 - Provider-neutral platform contracts and explicit GitLab/Jira placeholders.
 - A detailed extensibility plan for remote-authoritative Git capture,
   interchangeable platform integrations, and multi-language parsers.
+- ONTO-KG Slice 0 ontology registry/seed scaffold and introductory notebook.
+- Document-first decoupling architecture and D0–D6 delivery plan, plus a tagged
+  GestaltDB 0.17 capability/scale review and reproducible characterization script.
 
 ### Changed
 
+- Require `gestaltdb[lmdb,arrow]>=0.17,<0.18` (locked to 0.17.0) and use its
+  `database.temporal` service instead of removed GraphDB temporal wrappers.
+  Existing synirmos graph APIs and IDs remain unchanged. Back up persisted
+  stores and test a copy before upgrading; the small LMDB/JSON reopen check
+  does not certify all histories/serializers or downgrade compatibility. See
+  `docs/GESTALTDB_SCALE_REVIEW.md` for compatibility scope and deferred work.
 - The distribution and Python import package are both named `synirmos`, using
   the standard `src/synirmos/` layout and uv's native build backend. Build the
   wheel and source distribution with `uv build`; no module-name overrides or

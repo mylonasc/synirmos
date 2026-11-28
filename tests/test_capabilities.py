@@ -68,3 +68,20 @@ def test_unknown_backend_is_reported(monkeypatch):
     backend = checks["gestaltdb-backend"]
     assert backend.available is False
     assert "does-not-exist" in backend.detail
+
+
+def test_missing_temporal_service_method_is_explicit(monkeypatch):
+    from gestaltdb.temporal_engine import TemporalEngine
+
+    monkeypatch.delattr(TemporalEngine, "get_edge_as_of")
+    checks = {item.name: item for item in check_capabilities()}
+    assert checks["gestaltdb-temporal-api"].available is False
+    assert "TemporalEngine.get_edge_as_of" in checks["gestaltdb-temporal-api"].detail
+
+
+def test_temporal_wrappers_are_not_required_on_graphdb():
+    from gestaltdb.graphdb import GraphDB
+
+    assert not hasattr(GraphDB, "put_node_version")
+    checks = {item.name: item for item in check_capabilities()}
+    assert checks["gestaltdb-temporal-api"].available is True
