@@ -8,6 +8,49 @@ Backend baseline: released GestaltDB **0.17.0**. See the
 reproducible probes, and the distinction between native features and planned
 synirmos integration. Performance recommendations below are not measured SLOs.
 
+## Execution status — update during delivery
+
+Last updated: 2026-11-28. This section is the live progress record; historical
+audit tables below retain their original date and are not current issue status.
+Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
+
+- **Merged baseline:** PR #18 merged to `main` as `830b7c4`: ontology scaffold,
+  document-first architecture, GestaltDB 0.17 dependency/API migration, capability
+  and scale review, and characterization script. No D-slice implementation is
+  complete. Last implementation gates: 359 tests, 92.03% coverage, example/build/
+  wheel checks; six ontology notebook cells executed in order.
+- **Current stage:** execution instructions and deferred-refactor tracking are
+  written in `AGENTS.md`; the two deferred issues below have been published.
+  This documentation checkpoint is not D0 implementation. Shared work remains
+  on `onto-kg-feature`, synchronized with merged `main`.
+- **Checkpoint verification:** `uv run python scripts/check.py` passes after the
+  instruction changes: Ruff lint/format, 359 tests, 92.03% coverage, example
+  regression, metrics, build and installed-wheel smoke. `git diff --check` passes.
+- **Next implementation:** D0/#11. Specify neutral contracts, qualified identities,
+  source validity versus observation/information horizon versus DB time,
+  authorization/collection/approval scope, read-session lifetimes, serialization,
+  and logical versus physical-work budgets through tests and notebook examples.
+- **Remaining:** D0 → D1/D2 → D3; complete #2 before dependent feature sign-off;
+  #3/#4 → D4/#5 → #6; D5 and #7 → D6 → final #8, honoring the exact prerequisites
+  in section 9 rather than adding a whole-epic dependency.
+- **Tracking mismatch:** merge auto-closed #2, but artifact I/O, merge/supersession
+  and comprehensive release consistency acceptance remain unfinished. Reopen or
+  link an explicitly reviewed completion issue before treating #2 as complete.
+- **Decisions still to measure:** deployment workload/SLO targets and eventual
+  ANN/backend selection. These do not block D0; no scale certification is claimed.
+- **Parsing/chunking direction:** evaluate reusable deterministic LangChain
+  parser/splitter adapters in D2, preserving neutral contracts, byte-span/source
+  maps, explicit capture and bounded dependencies; no new dependency is added by
+  this instructions-only change.
+- **Deferred technical debt (not new whole-epic blockers):**
+  - [#19](https://github.com/mylonasc/synirmos/issues/19): separate remote-authoritative
+    Git capture/owned cache policy from local immutable-object reading; the full
+    transport/authority migration remains outside document projection delivery.
+  - [#20](https://github.com/mylonasc/synirmos/issues/20): migrate remaining legacy
+    repository consumers to provider-neutral identities/records, with explicit
+    persisted-ID/event/job compatibility. D0–D6's required neutral seams and
+    compatibility remain in those slices, not deferred here.
+
 ## 1. Purpose and relationship to existing plans
 
 Make synirmos usable for standalone text documents and document collections,
@@ -51,7 +94,7 @@ Branches were inspected separately without treating their contents as one releas
 | `jere-feature` at `6b34635` | `processing/agentic/` prototype, `ParsingContext`, shared helpers, `enrichment.py` delegation, 8 JERE tests and epic | Source-neutral identity, dynamic ontology vocabulary, enforced scoped context, canonical resolution, complete framework wiring |
 | GitHub #1–#9 | All issues open at audit; no PRs found | A pushed branch commit is not a merged release or a reason to close its whole tracker |
 
-In particular, #2 remains open legitimately: the implemented scaffold is useful,
+At that audit, #2 remained open legitimately: the implemented scaffold is useful,
 but its original acceptance text includes work absent from the branch. Do not
 mark merge semantics or artifact round-trips complete based on the prior summary.
 
@@ -227,6 +270,15 @@ Use neutral byte inputs with media/path hints. Extract Markdown behavior first,
 add plain-text fallback, and retain a Git adapter for `ContentIndex` consumers.
 Use half-open byte spans into immutable original content with explicit decoded
 text/source maps. Test Unicode, CRLF, BOM, empty content, and normalized text.
+
+Reuse suitable non-LLM LangChain parser/splitter capabilities behind concrete
+adapters rather than rewriting standard chunking algorithms; evaluate the
+separate `langchain-text-splitters` package when implementing D2. Core records and
+ports remain framework-neutral. Framework document metadata/character offsets
+are not authoritative byte spans or identities: preserve whitespace/heading/
+overlap mappings, handle repeated text, and fingerprint adapter/library/config
+versions. Keep source acquisition separate from loaders with hidden I/O. Existing
+parser compatibility and evidence accuracy take precedence over forced reuse.
 
 PR descriptions, commit messages, repository documentation, and docstrings are
 document views with an `OriginReference` to their source entity/field/version.
@@ -478,6 +530,8 @@ neutral parser contracts, Markdown extraction, plain text and deterministic
 chunking. Preserve original content and source maps. Existing Git processing
 uses an adapter; no duplicated parser. Source/parse/chunk flow works without DB,
 ontology, repository configuration, or LLM.
+Evaluate existing parser reuse and deterministic LangChain splitting behind
+neutral adapters; add only required compatible dependencies and lock updates.
 
 Acceptance: explicit file boundary/symlink/byte-limit/decoding cases; revision
 identity, Unicode/CRLF/BOM spans; existing Markdown parsing goldens; deterministic
@@ -613,8 +667,9 @@ API verification on 2026-11-28 confirmed #1 has eight native sub-issues
 and #1/#9/#10 have no whole-tracker blockers. Original issue-body prefixes and
 labels were preserved; amendments are explicitly marked. New labels are `epic`,
 `area:architecture`, `priority:p0`, `priority:p1`, and `design:scope-refined`.
-All #1–#17 remain open. These remote tracking updates do not imply this local
-Markdown plan has been committed, pushed, or implemented.
+At that pre-merge verification, all #1–#17 were open. PR #18 subsequently merged
+the baseline/plan and auto-closed incomplete #2; consult the execution-status
+section for current progress and reconciliation, not these historical snapshots.
 
 ```text
 D0 -> D1 -> D3 ----+
