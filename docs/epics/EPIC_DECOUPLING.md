@@ -19,17 +19,26 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   and scale review, and characterization script. No D-slice implementation is
   complete. Last implementation gates: 359 tests, 92.03% coverage, example/build/
   wheel checks; six ontology notebook cells executed in order.
-- **Current stage:** execution instructions and deferred-refactor tracking are
-  written in `AGENTS.md`; the two deferred issues below have been published.
-  This documentation checkpoint is not D0 implementation. Shared work remains
-  on `onto-kg-feature`, synchronized with merged `main`.
-- **Checkpoint verification:** `uv run python scripts/check.py` passes after the
-  instruction changes: Ruff lint/format, 359 tests, 92.03% coverage, example
-  regression, metrics, build and installed-wheel smoke. `git diff --check` passes.
-- **Next implementation:** D0/#11. Specify neutral contracts, qualified identities,
-  source validity versus observation/information horizon versus DB time,
-  authorization/collection/approval scope, read-session lifetimes, serialization,
-  and logical versus physical-work budgets through tests and notebook examples.
+- **Current stage:** D0/#11 implementation started on `onto-kg-feature`.
+  PR #21 is still open and will include the implementation checkpoints as well
+  as its execution instructions; no PR is merged automatically. First increment:
+  document/revision/content identities, byte spans, explicit time semantics and
+  narrow document-source/content-reader ports. D0 is not complete.
+- **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
+  and `core/ports/documents.py`: immutable versioned values, framed qualified
+  identity, conservative byte-count limits, original-byte span integrity, and
+  independent source-valid/capture/justified-knowledge times. Existing repository
+  APIs/IDs are unchanged. See [the contract specification](../DOCUMENT_CONTRACTS.md).
+  Core boundary checks now recurse into ports and test fresh-process imports.
+- **Checkpoint verification:** `uv run python scripts/check.py` passes: Ruff
+  lint/format, 396 tests, 92.32% coverage, example regression, metrics, build and
+  installed-wheel smoke. New contract modules have complete test coverage.
+  `git diff --check` passes. Notebook execution will be added in the next checkpoint.
+- **Next implementation:** add the first increment's executable notebook, then neutral
+  graph/context/extraction contracts, trusted authorization/collection/approval
+  scope, read-session lifetimes and logical versus physical-work budgets. Finish
+  D0's executable examples, JSON round-trips and recursive import-boundary tests
+  before moving to D1/D2. Existing repository contracts/IDs remain unchanged.
 - **Remaining:** D0 → D1/D2 → D3; complete #2 before dependent feature sign-off;
   #3/#4 → D4/#5 → #6; D5 and #7 → D6 → final #8, honoring the exact prerequisites
   in section 9 rather than adding a whole-epic dependency.

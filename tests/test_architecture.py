@@ -2,6 +2,9 @@
 
 import ast
 import importlib
+import os
+import subprocess
+import sys
 from importlib.util import resolve_name
 from pathlib import Path
 
@@ -55,13 +58,72 @@ def test_library_has_no_example_paths_or_repository_defaults():
                 assert not any(name.startswith("examples") for name in names), path
 
 
+def _assert_core_imports(source: str, package: str) -> None:
+    forbidden = {
+        "gestaltdb",
+        "pygit2",
+        "httpx",
+        "markdown_it",
+        "sklearn",
+        "langchain",
+        "langchain_core",
+        "langchain_community",
+        "langchain_text_splitters",
+    }
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            names = [resolve_name("." * node.level + module, package) if node.level else module]
+        elif isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        else:
+            continue
+        for name in names:
+            assert name.split(".")[0] not in forbidden, name
+            if name == "synirmos" or name.startswith("synirmos."):
+                assert name == "synirmos.core" or name.startswith("synirmos.core."), name
+
+
 def test_core_does_not_import_outer_layers():
-    for path in (ROOT / "src/synirmos/core").glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.ImportFrom):
-                assert node.level < 2, path
-                if node.module and node.module.startswith("synirmos."):
-                    assert node.module.startswith("synirmos.core."), path
+    for path in (ROOT / "src/synirmos/core").rglob("*.py"):
+        package = ".".join(path.parent.relative_to(ROOT / "src").parts)
+        _assert_core_imports(path.read_text(), package)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from ...storage import graph",
+        "import synirmos.sources.git",
+        "from langchain_core.documents import Document",
+        "import gestaltdb",
+        "from synirmos import load_config",
+    ],
+)
+def test_recursive_core_boundary_rejects_relative_and_absolute_escapes(source):
+    with pytest.raises(AssertionError):
+        _assert_core_imports(source, "synirmos.core.ports")
+
+
+def test_document_contract_imports_do_not_load_implementation_dependencies(tmp_path):
+    code = """
+import sys
+import synirmos.core.contracts
+import synirmos.core.documents
+import synirmos.core.temporal
+import synirmos.core.ports.documents
+for name in sys.modules:
+    assert not name.startswith((
+        'gestaltdb', 'pygit2', 'langchain', 'synirmos.storage', 'synirmos.sources',
+        'synirmos.processing',
+    )), name
+"""
+    subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+        check=True,
+    )
 
 
 def test_implementations_use_domain_packages_not_flat_aliases():

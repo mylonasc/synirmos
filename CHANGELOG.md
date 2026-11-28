@@ -18,6 +18,11 @@ available on PyPI.
 - ONTO-KG Slice 0 ontology registry/seed scaffold and introductory notebook.
 - Document-first decoupling architecture and D0–D6 delivery plan, plus a tagged
   GestaltDB 0.17 capability/scale review and reproducible characterization script.
+- First D0 contracts: versioned immutable document/revision/content values,
+  qualified identities, collection membership, verified byte spans, chunk versus
+  occurrence identities, explicit validity/observation/knowledge times, bounded
+  document batches and narrow source/content-reader ports. These are additive
+  values/interfaces, not a capture/parser implementation or completion of D0.
 
 ### Changed
 
