@@ -13,6 +13,21 @@ under `notebooks/`:
 | `04_resolution.ipynb` | 4 (#6) | Entity resolution + idempotent writer |
 | `05_dynamic_retrieval.ipynb` | 5 (#7) | Data-driven retrieval demo |
 
+Only notebook 00 and the D0 checkpoint below currently exist; the other rows are
+planned slice artifacts, not shipped examples. Notebook 00 demonstrates the
+scaffold, not all of #2's remaining artifact/merge acceptance.
+
+## Architectural prerequisites
+
+`notebooks/D0_contracts.ipynb` accompanies the neutral-contract slice D0/#11:
+qualified document/revision identity, content sharing versus collection/access
+identity, original UTF-8/CRLF byte spans, source validity versus observed/justified
+knowledge time, chunk content versus occurrences, bounded source pages, trusted
+scope intersection, actual exposure/shared budgets, and retry-stable unapproved
+extraction/assertion values. It is not capture/parsing/storage/agent implementation.
+See `docs/{DOCUMENT,GRAPH_CONTEXT,EXTRACTION}_CONTRACTS.md` for the specifications
+and `docs/epics/EPIC_DECOUPLING.md` for verified progress and later slice ownership.
+
 ## Running
 
 Notebooks assume the `synirmos` package is installed (this repo, editable)
@@ -25,3 +40,10 @@ uv run --with jupyter jupyter lab examples/onto_kg/notebooks/
 
 Every notebook is also executable as a plain script: concatenate its code
 cells in order and run with `uv run python`.
+
+The automated offline path requires no Jupyter extra and runs existing notebook
+code cells in order in fresh processes, including in the full quality gate:
+
+```bash
+uv run pytest examples/onto_kg/tests -q
+```

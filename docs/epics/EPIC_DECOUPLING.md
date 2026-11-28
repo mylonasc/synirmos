@@ -1,12 +1,89 @@
 # EPIC: Decouple sources, graph storage, and context for document-first ONTO-KG
 
-Status: target architecture and phased implementation plan, not implemented behavior.
+Status: D0's neutral contract layer is implemented/verified on `onto-kg-feature`,
+pending PR review; the remaining architecture/slices are targets, not implemented behavior.
 Audit date: 2026-11-28. Implementation branch: `onto-kg-feature` for shared
 ONTO-KG foundations; JERE-agent changes remain on `jere-feature` under #9.
 Backend baseline: released GestaltDB **0.17.0**. See the
 [capability/scale review](../GESTALTDB_SCALE_REVIEW.md) for tagged evidence,
 reproducible probes, and the distinction between native features and planned
 synirmos integration. Performance recommendations below are not measured SLOs.
+
+## Execution status — update during delivery
+
+Last updated: 2026-11-28. This section is the live progress record; historical
+audit tables below retain their original date and are not current issue status.
+Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
+
+- **Merged baseline:** PR #18 merged to `main` as `830b7c4`: ontology scaffold,
+  document-first architecture, GestaltDB 0.17 dependency/API migration, capability
+  and scale review, and characterization script. At that baseline no D-slice
+  implementation was complete; 359 tests/92.03% coverage passed.
+- **Current stage:** D1/#12 implementation started on `onto-kg-feature`.
+  First increment (pure profile composition/validation/migration, no sink
+  changes) is implemented and locally verified; push follows full-gate
+  confirmation. D0/#11 remains open pending review in PR #21. D2–D6 and actual
+  sources/parsers/storage/readers/providers/agents are not implemented.
+- **Graph/scope increment implemented/verified:** neutral graph values/profiles/write intents,
+  deeply immutable JSON properties, finite trusted grants intersected with
+  requests, explicit snapshot pins and separate logical/physical read budgets.
+  Empty selection means no access, never an implicit wildcard. Native adapters,
+  real authorization and durable publication remain D1/D3 responsibilities.
+  Graph/scope commit `7a410fb` is pushed. Context/exposure/read-session and
+  extraction value/port commit `1581738` is pushed. Their specifications are
+  [graph/context contracts](../GRAPH_CONTEXT_CONTRACTS.md) and
+  [extraction contracts](../EXTRACTION_CONTRACTS.md).
+- **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
+  and `core/ports/documents.py`: immutable versioned values, framed qualified
+  identity, conservative byte-count limits, original-byte span integrity, and
+  independent source-valid/capture/justified-knowledge times. Existing repository
+  APIs/IDs are unchanged. See [the contract specification](../DOCUMENT_CONTRACTS.md).
+  Core boundary checks now recurse into ports and test fresh-process imports.
+- **Checkpoint delivery:** contract implementation/test commit `6350c5b` is pushed.
+  `examples/onto_kg/notebooks/D0_contracts.ipynb` now demonstrates source-qualified
+  identity, collection independence, capture retries, time eligibility, byte spans,
+  chunk occurrences and page limits with assertions. The full gate executes it
+  and notebook 00 in fresh processes (nine and six code cells respectively)
+  without Jupyter. The final extension demonstrates scope, exposure/shared
+  budgets and unapproved retry-stable extraction/support values; installed-wheel
+  smoke exercises the new core models, immutable properties and nested ports.
+- **D0 acceptance evidence:** qualified identity/collision and multi-origin/
+  multi-collection tests; UTC/source/knowledge/DB-time distinction; frozen values
+  and JSON round-trips; finite grant/request intersection; complete scoped
+  records/exposure/version conflicts; shared budget/capability outcomes; explicit
+  session-lifetime conformance doubles; candidate/assertion/review/retry identity;
+  recursive and fresh-process import boundaries; contract/migration specs and
+  an automated informative notebook. Real adapter enforcement is D1/D3, not a
+  consequence of constructing/deserializing a trusted grant or evidence value.
+- **Final D0 verification:** full gates pass with 449 tests, 93.14% coverage,
+  repository example regression, three ONTO-KG notebook checks, metrics, build
+  and expanded installed-wheel smoke. New contract modules have complete test
+  coverage; validators are split by responsibility. All 84 new contract tests
+  also pass in an isolated Pydantic 2.8.2 environment. `git diff --check` passes.
+  No legacy IDs, existing public APIs or dependency floors change.
+- **Next implementation:** D1/#12 generic storage/profile extraction and native
+  batch/publication adapters, consuming the reviewed D0 contracts. D2/#13 can
+  follow independently after D0; no additional broad planning phase is needed.
+- **Remaining:** review/merge D0, then D1/D2 → D3; complete #2 before dependent feature sign-off;
+  #3/#4 → D4/#5 → #6; D5 and #7 → D6 → final #8, honoring the exact prerequisites
+  in section 9 rather than adding a whole-epic dependency.
+- **Tracking reconciled:** #2 was reopened on 2026-11-28 after PR #18's accidental
+  closure. Artifact I/O, merge/supersession and comprehensive release consistency
+  acceptance remain unfinished there; the delivered scaffold is preserved.
+- **Decisions still to measure:** deployment workload/SLO targets and eventual
+  ANN/backend selection. These do not block D0; no scale certification is claimed.
+- **Parsing/chunking direction:** evaluate reusable deterministic LangChain
+  parser/splitter adapters in D2, preserving neutral contracts, byte-span/source
+  maps, explicit capture and bounded dependencies; no new dependency is added by
+  these D0 value/protocol checkpoints. Actual source/parsing adapters remain D2.
+- **Deferred technical debt (not new whole-epic blockers):**
+  - [#19](https://github.com/mylonasc/synirmos/issues/19): separate remote-authoritative
+    Git capture/owned cache policy from local immutable-object reading; the full
+    transport/authority migration remains outside document projection delivery.
+  - [#20](https://github.com/mylonasc/synirmos/issues/20): migrate remaining legacy
+    repository consumers to provider-neutral identities/records, with explicit
+    persisted-ID/event/job compatibility. D0–D6's required neutral seams and
+    compatibility remain in those slices, not deferred here.
 
 ## 1. Purpose and relationship to existing plans
 
@@ -51,7 +128,7 @@ Branches were inspected separately without treating their contents as one releas
 | `jere-feature` at `6b34635` | `processing/agentic/` prototype, `ParsingContext`, shared helpers, `enrichment.py` delegation, 8 JERE tests and epic | Source-neutral identity, dynamic ontology vocabulary, enforced scoped context, canonical resolution, complete framework wiring |
 | GitHub #1–#9 | All issues open at audit; no PRs found | A pushed branch commit is not a merged release or a reason to close its whole tracker |
 
-In particular, #2 remains open legitimately: the implemented scaffold is useful,
+At that audit, #2 remained open legitimately: the implemented scaffold is useful,
 but its original acceptance text includes work absent from the branch. Do not
 mark merge semantics or artifact round-trips complete based on the prior summary.
 
@@ -227,6 +304,15 @@ Use neutral byte inputs with media/path hints. Extract Markdown behavior first,
 add plain-text fallback, and retain a Git adapter for `ContentIndex` consumers.
 Use half-open byte spans into immutable original content with explicit decoded
 text/source maps. Test Unicode, CRLF, BOM, empty content, and normalized text.
+
+Reuse suitable non-LLM LangChain parser/splitter capabilities behind concrete
+adapters rather than rewriting standard chunking algorithms; evaluate the
+separate `langchain-text-splitters` package when implementing D2. Core records and
+ports remain framework-neutral. Framework document metadata/character offsets
+are not authoritative byte spans or identities: preserve whitespace/heading/
+overlap mappings, handle repeated text, and fingerprint adapter/library/config
+versions. Keep source acquisition separate from loaders with hidden I/O. Existing
+parser compatibility and evidence accuracy take precedence over forced reuse.
 
 PR descriptions, commit messages, repository documentation, and docstrings are
 document views with an `OriginReference` to their source entity/field/version.
@@ -478,6 +564,8 @@ neutral parser contracts, Markdown extraction, plain text and deterministic
 chunking. Preserve original content and source maps. Existing Git processing
 uses an adapter; no duplicated parser. Source/parse/chunk flow works without DB,
 ontology, repository configuration, or LLM.
+Evaluate existing parser reuse and deterministic LangChain splitting behind
+neutral adapters; add only required compatible dependencies and lock updates.
 
 Acceptance: explicit file boundary/symlink/byte-limit/decoding cases; revision
 identity, Unicode/CRLF/BOM spans; existing Markdown parsing goldens; deterministic
@@ -613,8 +701,9 @@ API verification on 2026-11-28 confirmed #1 has eight native sub-issues
 and #1/#9/#10 have no whole-tracker blockers. Original issue-body prefixes and
 labels were preserved; amendments are explicitly marked. New labels are `epic`,
 `area:architecture`, `priority:p0`, `priority:p1`, and `design:scope-refined`.
-All #1–#17 remain open. These remote tracking updates do not imply this local
-Markdown plan has been committed, pushed, or implemented.
+At that pre-merge verification, all #1–#17 were open. PR #18 subsequently merged
+the baseline/plan and auto-closed incomplete #2; consult the execution-status
+section for current progress and reconciliation, not these historical snapshots.
 
 ```text
 D0 -> D1 -> D3 ----+

@@ -29,10 +29,31 @@ from importlib.util import find_spec
 import synirmos
 from synirmos import load_config
 from synirmos.core.models import RuntimeConfig
+from synirmos.core.contracts import SourceKey
+from synirmos.core.documents import ContentReference, DocumentRevision, TextDocument
+from synirmos.core.ports.documents import ContentReader, DocumentSource
+from synirmos.core.temporal import ReadPoint
+from synirmos.core.graph import Properties, ScopeGrant
+from synirmos.core.context import ContextResult, ExposureSet
+from synirmos.core.extraction import ExtractionOperation
+from synirmos.core.ports.knowledge import ReadSession
+from synirmos.core.ports.extraction import Extractor
 from synirmos.sources.git import GitHistory
 assert version("synirmos") == EXPECTED_VERSION
 assert "site-packages" in synirmos.__file__
 assert find_spec("repo_history") is None
+document = TextDocument(key=SourceKey(source_instance="wheel:smoke", native_key="text"))
+assert document.document_id.startswith("document:")
+content = ContentReference.from_bytes(b"installed wheel")
+ContentReference.model_validate_json(content.model_dump_json()).verify(b"installed wheel")
+properties = Properties({"nested": {"values": [1, True, None]}})
+assert Properties.model_validate_json(properties.model_dump_json()) == properties
+properties.to_dict()["nested"]["values"].append("changed copy")
+assert len(properties.to_dict()["nested"]["values"]) == 3
+assert all(value.__module__.startswith("synirmos.core.") for value in (
+    DocumentRevision, ContentReader, DocumentSource, ReadPoint, ScopeGrant,
+    ContextResult, ExposureSet, ExtractionOperation, ReadSession, Extractor,
+))
 config = Path("repository.toml")
 config.write_text("""[repository]
 owner = "acme"

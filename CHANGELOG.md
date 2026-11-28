@@ -18,6 +18,27 @@ available on PyPI.
 - ONTO-KG Slice 0 ontology registry/seed scaffold and introductory notebook.
 - Document-first decoupling architecture and D0–D6 delivery plan, plus a tagged
   GestaltDB 0.17 capability/scale review and reproducible characterization script.
+- First D0 contracts: versioned immutable document/revision/content values,
+  qualified identities, collection membership, verified byte spans, chunk versus
+  occurrence identities, explicit validity/observation/knowledge times, bounded
+  document batches and narrow source/content-reader ports. These are additive
+  values/interfaces, not a capture/parser implementation.
+- D0 document/time notebook with automated plain-Python cell execution for
+  shipped ONTO-KG notebooks in the full quality gate; installed-wheel smoke
+  coverage for the new core values and nested ports.
+- D0 graph/profile/write values, trusted finite-grant intersection, deeply
+  immutable JSON properties, explicit physical-budget capabilities, complete
+  scoped context/exposure receipts and read-session ports. Extraction contracts
+  separate proposals, retry-stable operations, canonical assertion supports and
+  trusted review metadata; real adapters/agents/policy enforcement remain later
+  slices. No legacy IDs or dependency floors change.
+- D0 notebook now covers graph scopes, shared exposure budgets and extraction/
+  assertion identity in nine executable cells, with expanded installed-wheel
+  checks and isolated Pydantic 2.8.2 contract compatibility verification.
+- First D1 storage increment: pure deterministic profile composition with
+  conflict rejection, fail-closed record validation against declared
+  vocabulary/required/reserved keys, backend capability checks, and reviewed
+  migration plans that refuse silent drops. No existing sink behavior changes.
 
 ### Changed
 
