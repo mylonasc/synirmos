@@ -19,10 +19,11 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   document-first architecture, GestaltDB 0.17 dependency/API migration, capability
   and scale review, and characterization script. At that baseline no D-slice
   implementation was complete; 359 tests/92.03% coverage passed.
-- **Current stage:** D0/#11 contract implementation and verification are complete
-  on `onto-kg-feature`, awaiting review in PR #21 (not merged automatically).
-  The tracker remains open pending review. D1–D6 and actual sources/parsers/
-  storage/readers/providers/agents are not implemented by this contract delivery.
+- **Current stage:** D1/#12 implementation started on `onto-kg-feature`.
+  First increment (pure profile composition/validation/migration, no sink
+  changes) is implemented and locally verified; push follows full-gate
+  confirmation. D0/#11 remains open pending review in PR #21. D2–D6 and actual
+  sources/parsers/storage/readers/providers/agents are not implemented.
 - **Graph/scope increment implemented/verified:** neutral graph values/profiles/write intents,
   deeply immutable JSON properties, finite trusted grants intersected with
   requests, explicit snapshot pins and separate logical/physical read budgets.

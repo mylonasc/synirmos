@@ -35,6 +35,10 @@ available on PyPI.
 - D0 notebook now covers graph scopes, shared exposure budgets and extraction/
   assertion identity in nine executable cells, with expanded installed-wheel
   checks and isolated Pydantic 2.8.2 contract compatibility verification.
+- First D1 storage increment: pure deterministic profile composition with
+  conflict rejection, fail-closed record validation against declared
+  vocabulary/required/reserved keys, backend capability checks, and reviewed
+  migration plans that refuse silent drops. No existing sink behavior changes.
 
 ### Changed
 
