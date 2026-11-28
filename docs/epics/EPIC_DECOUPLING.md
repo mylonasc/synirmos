@@ -19,12 +19,18 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   and scale review, and characterization script. No D-slice implementation is
   complete. Last implementation gates: 359 tests, 92.03% coverage, example/build/
   wheel checks; six ontology notebook cells executed in order.
-- **Current stage:** D0/#11 implementation started on `onto-kg-feature`.
+- **Current stage:** D0/#11 implementation continues on `onto-kg-feature`.
   PR #21 is still open and will include the implementation checkpoints as well
   as its execution instructions; no PR is merged automatically. First increment:
   document/revision/content identities, byte spans, explicit time semantics and
   narrow document-source/content-reader ports are implemented, along with the
   first increment's executable notebook. D0 is not complete.
+- **Second increment implemented/verified:** neutral graph values/profiles/write intents,
+  deeply immutable JSON properties, finite trusted grants intersected with
+  requests, explicit snapshot pins and separate logical/physical read budgets.
+  Empty selection means no access, never an implicit wildcard. Native adapters,
+  real authorization and durable publication remain D1/D3 responsibilities.
+  Context/exposure/read-session contracts are now in progress, not yet verified.
 - **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
   and `core/ports/documents.py`: immutable versioned values, framed qualified
   identity, conservative byte-count limits, original-byte span integrity, and
@@ -37,13 +43,12 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   chunk occurrences and page limits with assertions. The full gate executes it
   and notebook 00 in fresh processes (six code cells each) without Jupyter;
   installed-wheel smoke exercises new core values and nested ports as well.
-- **Checkpoint verification:** `uv run python scripts/check.py` passes: Ruff
-  lint/format, 396 tests, 92.32% coverage, example regression, metrics, build and
+- **Checkpoint verification (graph/scope increment):** `uv run python scripts/check.py`
+  passes: Ruff lint/format, 427 tests, 92.64% coverage, example regression, metrics, build and
   installed-wheel smoke, plus three ONTO-KG notebook checks. New contract modules
   have complete test coverage. `git diff --check` passes.
-- **Next implementation:** neutral
-  graph/context/extraction contracts, trusted authorization/collection/approval
-  scope, read-session lifetimes and logical versus physical-work budgets. Finish
+- **Next implementation:** context/exposure/extraction contracts and read-session
+  lifetimes, with corresponding notebook coverage. Finish
   D0's executable examples, JSON round-trips and recursive import-boundary tests
   before moving to D1/D2. Existing repository contracts/IDs remain unchanged.
 - **Remaining:** D0 → D1/D2 → D3; complete #2 before dependent feature sign-off;

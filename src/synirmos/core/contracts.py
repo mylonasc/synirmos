@@ -41,11 +41,16 @@ def content_digest(content: bytes) -> str:
 def json_fingerprint(value: JsonValue) -> str:
     """Canonical JSON identity; NaN/infinity and non-JSON values fail explicitly."""
 
+    return content_digest(canonical_json(value).encode("utf-8"))
+
+
+def canonical_json(value: JsonValue) -> str:
+    """A detached JSON representation, without key/type coercion."""
+
     validated = _JSON_VALUE.validate_python(value, strict=True)
-    encoded = json.dumps(
+    return json.dumps(
         validated, sort_keys=True, ensure_ascii=True, allow_nan=False, separators=(",", ":")
-    ).encode("utf-8")
-    return content_digest(encoded)
+    )
 
 
 def contract_id(kind: str, *parts: str) -> str:
