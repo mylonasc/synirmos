@@ -690,7 +690,7 @@ class GraphSink(GraphSinkProtocol):
         )
         node = Node(node_id=write.logical_id, labels=list(write.labels), properties=properties)
         try:
-            self._db.put_node_version(
+            self._db.temporal.put_node_version(
                 node,
                 valid=_valid_interval(write.valid_from),
                 version_id=version_id,
@@ -700,7 +700,7 @@ class GraphSink(GraphSinkProtocol):
         except TemporalVersionError as exc:
             if "already exists" not in str(exc):
                 raise
-            existing = self._db.get_node_version(version_id)
+            existing = self._db.temporal.get_node_version(version_id)
             if existing is None or dict(existing.node.properties) != properties:
                 raise GraphError(
                     f"Conflicting write for version {version_id} "
@@ -723,7 +723,7 @@ class GraphSink(GraphSinkProtocol):
             properties=properties,
         )
         try:
-            self._db.put_edge_version(
+            self._db.temporal.put_edge_version(
                 edge,
                 valid=_valid_interval(write.valid_from),
                 version_id=version_id,
@@ -733,7 +733,7 @@ class GraphSink(GraphSinkProtocol):
         except TemporalVersionError as exc:
             if "already exists" not in str(exc):
                 raise
-            existing = self._db.get_edge_version(version_id)
+            existing = self._db.temporal.get_edge_version(version_id)
             if existing is None or dict(existing.edge.properties) != properties:
                 raise GraphError(
                     f"Conflicting write for version {version_id} "
@@ -765,7 +765,7 @@ class GraphSink(GraphSinkProtocol):
         )
         node = Node(node_id=write.logical_id, labels=list(write.labels), properties=properties)
         mode = IndexMaintenanceMode.DEFER if defer_indexes else IndexMaintenanceMode.MAINTAIN
-        self._db.correct_node_version(
+        self._db.temporal.correct_node_version(
             node,
             supersedes_version_id=supersedes_version_id,
             valid=_valid_interval(valid_from or write.valid_from),
@@ -800,7 +800,7 @@ class GraphSink(GraphSinkProtocol):
             properties=properties,
         )
         mode = IndexMaintenanceMode.DEFER if defer_indexes else IndexMaintenanceMode.MAINTAIN
-        self._db.correct_edge_version(
+        self._db.temporal.correct_edge_version(
             edge,
             supersedes_version_id=supersedes_version_id,
             valid=_valid_interval(valid_from or write.valid_from),
@@ -817,13 +817,13 @@ class GraphSink(GraphSinkProtocol):
     def node_as_of(self, logical_id: str, valid_time: datetime) -> dict[str, Any] | None:
         self._ensure_open("read a node version")
         self._ensure_ready()
-        found = self._db.get_node_as_of(logical_id, valid_time=ensure_utc(valid_time))
+        found = self._db.temporal.get_node_as_of(logical_id, valid_time=ensure_utc(valid_time))
         return dict(found.node.properties) if found is not None else None
 
     def edge_as_of(self, edge_id: str, valid_time: datetime) -> dict[str, Any] | None:
         self._ensure_open("read an edge version")
         self._ensure_ready()
-        found = self._db.get_edge_as_of(edge_id, valid_time=ensure_utc(valid_time))
+        found = self._db.temporal.get_edge_as_of(edge_id, valid_time=ensure_utc(valid_time))
         return dict(found.edge.properties) if found is not None else None
 
     def node_history(self, logical_id: str) -> tuple[VersionRecord, ...]:
@@ -832,7 +832,7 @@ class GraphSink(GraphSinkProtocol):
         self._ensure_open("read node history")
         self._ensure_ready()
         records: list[VersionRecord] = []
-        for version in self._db.iter_node_versions(logical_id):
+        for version in self._db.temporal.iter_node_versions(logical_id):
             valid = getattr(version, "valid", None)
             records.append(
                 VersionRecord(
@@ -851,7 +851,7 @@ class GraphSink(GraphSinkProtocol):
         self._ensure_open("read edge history")
         self._ensure_ready()
         records: list[VersionRecord] = []
-        for version in self._db.iter_edge_versions(edge_id):
+        for version in self._db.temporal.iter_edge_versions(edge_id):
             valid = getattr(version, "valid", None)
             records.append(
                 VersionRecord(

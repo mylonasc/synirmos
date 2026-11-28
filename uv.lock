@@ -279,16 +279,16 @@ wheels = [
 
 [[package]]
 name = "gestaltdb"
-version = "0.12.1"
+version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lark" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/db/4cdb9344e7f78bc317f4ae4b05af6a90bd90f5438262ff989662315de4bf/gestaltdb-0.12.1.tar.gz", hash = "sha256:ec0bd3c7ab1ac06565353330b5ecaec80cc7f19daf5d3dfa449fbbd6ea9fccbf", size = 427173, upload-time = "2026-10-18T21:47:15.198Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/03/f8b3afcfca98123aa81b8260b6437865b6d08d7782bf3f4e743eca3a315d/gestaltdb-0.17.0.tar.gz", hash = "sha256:dae7a83aaef900115cb753a3630bd83139326c4f2d6950a833aecbd904118c2a", size = 1019342, upload-time = "2026-11-02T20:30:24.192Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/63/eb8635ccc3a2329eac9eebb6a3acbeaf849bcbb5be36830017bba09360ea/gestaltdb-0.12.1-py3-none-any.whl", hash = "sha256:5b806fc020154f1078fe7d99b8f023b78c4388c870b6ab4445e338ac330418f1", size = 343145, upload-time = "2026-10-18T21:47:13.585Z" },
+    { url = "https://files.pythonhosted.org/packages/39/83/9a64a0c192af8f53241dbd9d1dbd37555f01120a34fbff0ae5ac0510e95b/gestaltdb-0.17.0-py3-none-any.whl", hash = "sha256:4318455781a5bb7efce1f5df97cc574b70ab0888f991b74d04e49c698fc865c0", size = 744748, upload-time = "2026-11-02T20:30:21.908Z" },
 ]
 
 [package.optional-dependencies]
@@ -1416,7 +1416,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gestaltdb", extras = ["lmdb", "arrow"], specifier = ">=0.12.1,<0.13" },
+    { name = "gestaltdb", extras = ["lmdb", "arrow"], specifier = ">=0.17,<0.18" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "langchain-core", specifier = ">=0.3,<2" },
     { name = "langchain-openai", marker = "extra == 'openai'", specifier = ">=0.2,<2" },

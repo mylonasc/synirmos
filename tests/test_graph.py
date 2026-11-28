@@ -418,6 +418,38 @@ def test_correction_retains_old_evidence(tmp_path):
     sink.close()
 
 
+def test_relationship_correction_retains_history_with_temporal_service(tmp_path):
+    boundary = commit("b" * 40, committed_at=T0)
+    tip = commit("c" * 40, parents=(boundary.sha,), committed_at=DAY_ONE)
+    mapped = map_git_index(git_index(selection((tip,), (boundary,))), ids(), run_id=RUN_ID)
+    write = next(edge for edge in mapped.relationships if edge.edge_type == PARENT_COMMIT)
+
+    with sink_at(tmp_path) as sink:
+        sink.write_entities(mapped.entities, analysis_run_id=RUN_ID)
+        sink.write_relationships([write], analysis_run_id=RUN_ID)
+        (original,) = sink.edge_history(write.edge_id)
+        corrected = write.model_copy(
+            update={
+                "properties": {**write.properties, "reviewed": True},
+                "event_id": "event-reviewed",
+                "valid_from": DAY_TWO,
+                "info_horizon": DAY_TWO,
+            }
+        )
+        version_id = sink.correct_relationship(
+            corrected, supersedes_version_id=original.version_id, valid_from=DAY_TWO
+        )
+
+        history = sink.edge_history(write.edge_id)
+        assert len(history) == 2
+        assert history[1].version_id == version_id
+        assert history[1].supersedes_version_id == original.version_id
+        assert "reviewed" not in history[0].properties
+        assert history[1].properties["reviewed"] is True
+        assert "reviewed" not in sink.edge_as_of(write.edge_id, DAY_ONE)
+        assert sink.edge_as_of(write.edge_id, DAY_TWO)["reviewed"] is True
+
+
 def test_deferred_indexes_rebuild_before_indexed_reads(tmp_path):
     tip = commit("c" * 40, committed_at=DAY_ONE)
     mapped = map_git_index(git_index(selection((tip,))), ids(), run_id=RUN_ID)
