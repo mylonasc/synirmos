@@ -66,6 +66,26 @@ def test_qualified_identity_is_framed_case_sensitive_and_not_name_based():
     assert doc.document_id.startswith("document:")
 
 
+def test_v1_identity_goldens_detect_accidental_wire_or_derivation_changes():
+    """Changing these requires a deliberate identity/schema compatibility decision."""
+    rev = revision(body=b"golden")
+    chunk = ChunkContent(content=rev.content, chunker=chunker(size=100))
+    span = SourceSpan(revision_id=rev.revision_id, content=rev.content, start=0, end=6)
+    occurrence = ChunkOccurrence(chunk=chunk, span=span)
+    assert rev.document.document_id == (
+        "document:7e4d08cfc341d5169ac1bd9aebc4010ff15195bf91fac1d498a0ec506aa452d6"
+    )
+    assert rev.revision_id == (
+        "revision:af788c6138f98ce6fdc1955220df84cf0dcf0d23e1454a7f2e1da73a7686b99a"
+    )
+    assert chunk.chunk_id == (
+        "chunk:0915ce51689e05c0458798bf98324e11b9f9bd20da8abd10fa3c07f9c663567e"
+    )
+    assert occurrence.occurrence_id == (
+        "occurrence:15df9bdd981a540ed3a112468f77396fffd0aefe3730f03b431a9f87740b9d54"
+    )
+
+
 @pytest.mark.parametrize("parts", [(), ("",), ("  ",), (1,), ("ok", None)])
 def test_identity_requires_nonblank_string_components(parts):
     with pytest.raises(ValueError, match="nonblank"):

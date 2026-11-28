@@ -1,6 +1,7 @@
 # EPIC: Decouple sources, graph storage, and context for document-first ONTO-KG
 
-Status: target architecture and phased implementation plan, not implemented behavior.
+Status: D0's neutral contract layer is implemented/verified on `onto-kg-feature`,
+pending PR review; the remaining architecture/slices are targets, not implemented behavior.
 Audit date: 2026-11-28. Implementation branch: `onto-kg-feature` for shared
 ONTO-KG foundations; JERE-agent changes remain on `jere-feature` under #9.
 Backend baseline: released GestaltDB **0.17.0**. See the
@@ -16,23 +17,21 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
 
 - **Merged baseline:** PR #18 merged to `main` as `830b7c4`: ontology scaffold,
   document-first architecture, GestaltDB 0.17 dependency/API migration, capability
-  and scale review, and characterization script. No D-slice implementation is
-  complete. Last implementation gates: 359 tests, 92.03% coverage, example/build/
-  wheel checks; six ontology notebook cells executed in order.
-- **Current stage:** D0/#11 implementation continues on `onto-kg-feature`.
-  PR #21 is still open and will include the implementation checkpoints as well
-  as its execution instructions; no PR is merged automatically. First increment:
-  document/revision/content identities, byte spans, explicit time semantics and
-  narrow document-source/content-reader ports are implemented, along with the
-  first increment's executable notebook. D0 is not complete.
-- **Second increment implemented/verified:** neutral graph values/profiles/write intents,
+  and scale review, and characterization script. At that baseline no D-slice
+  implementation was complete; 359 tests/92.03% coverage passed.
+- **Current stage:** D0/#11 contract implementation and verification are complete
+  on `onto-kg-feature`, awaiting review in PR #21 (not merged automatically).
+  The tracker remains open pending review. D1–D6 and actual sources/parsers/
+  storage/readers/providers/agents are not implemented by this contract delivery.
+- **Graph/scope increment implemented/verified:** neutral graph values/profiles/write intents,
   deeply immutable JSON properties, finite trusted grants intersected with
   requests, explicit snapshot pins and separate logical/physical read budgets.
   Empty selection means no access, never an implicit wildcard. Native adapters,
   real authorization and durable publication remain D1/D3 responsibilities.
   Graph/scope commit `7a410fb` is pushed. Context/exposure/read-session and
-  extraction value/port contracts are now implemented and tested as well;
-  the notebook and installed-wheel checks still need their final D0 extensions.
+  extraction value/port commit `1581738` is pushed. Their specifications are
+  [graph/context contracts](../GRAPH_CONTEXT_CONTRACTS.md) and
+  [extraction contracts](../EXTRACTION_CONTRACTS.md).
 - **Implemented/verified first increment:** `core/{contracts,documents,temporal}.py`
   and `core/ports/documents.py`: immutable versioned values, framed qualified
   identity, conservative byte-count limits, original-byte span integrity, and
@@ -43,25 +42,33 @@ Follow `AGENTS.md` for checkpoint, push and technical-debt tracking rules.
   `examples/onto_kg/notebooks/D0_contracts.ipynb` now demonstrates source-qualified
   identity, collection independence, capture retries, time eligibility, byte spans,
   chunk occurrences and page limits with assertions. The full gate executes it
-  and notebook 00 in fresh processes (six code cells each) without Jupyter;
-  installed-wheel smoke exercises new core values and nested ports as well.
-- **Checkpoint verification (context/extraction increment):** full gates pass with
-  449 tests, 93.12% coverage, example regression, metrics, build and
-  installed-wheel smoke, plus three ONTO-KG notebook checks. New contract modules
-  have complete test coverage. Validators are split by responsibility; fast
-  lint/format and all 449 tests pass after that cleanup. `git diff --check` passes.
-  Pydantic 2.8.2 imports/property round-trips/JSON schemas also pass in isolation;
-  the existing dependency floor is preserved.
-- **Next implementation:** extend D0's notebook and installed-wheel smoke for
-  the remaining scope/context/extraction seams, then run the final gates and
-  review D0/#11 acceptance before starting D1/D2. Existing repository contracts/
-  IDs remain unchanged; no storage/provider/agent implementation is implied.
-- **Remaining:** D0 → D1/D2 → D3; complete #2 before dependent feature sign-off;
+  and notebook 00 in fresh processes (nine and six code cells respectively)
+  without Jupyter. The final extension demonstrates scope, exposure/shared
+  budgets and unapproved retry-stable extraction/support values; installed-wheel
+  smoke exercises the new core models, immutable properties and nested ports.
+- **D0 acceptance evidence:** qualified identity/collision and multi-origin/
+  multi-collection tests; UTC/source/knowledge/DB-time distinction; frozen values
+  and JSON round-trips; finite grant/request intersection; complete scoped
+  records/exposure/version conflicts; shared budget/capability outcomes; explicit
+  session-lifetime conformance doubles; candidate/assertion/review/retry identity;
+  recursive and fresh-process import boundaries; contract/migration specs and
+  an automated informative notebook. Real adapter enforcement is D1/D3, not a
+  consequence of constructing/deserializing a trusted grant or evidence value.
+- **Final D0 verification:** full gates pass with 449 tests, 93.14% coverage,
+  repository example regression, three ONTO-KG notebook checks, metrics, build
+  and expanded installed-wheel smoke. New contract modules have complete test
+  coverage; validators are split by responsibility. All 84 new contract tests
+  also pass in an isolated Pydantic 2.8.2 environment. `git diff --check` passes.
+  No legacy IDs, existing public APIs or dependency floors change.
+- **Next implementation:** D1/#12 generic storage/profile extraction and native
+  batch/publication adapters, consuming the reviewed D0 contracts. D2/#13 can
+  follow independently after D0; no additional broad planning phase is needed.
+- **Remaining:** review/merge D0, then D1/D2 → D3; complete #2 before dependent feature sign-off;
   #3/#4 → D4/#5 → #6; D5 and #7 → D6 → final #8, honoring the exact prerequisites
   in section 9 rather than adding a whole-epic dependency.
-- **Tracking mismatch:** merge auto-closed #2, but artifact I/O, merge/supersession
-  and comprehensive release consistency acceptance remain unfinished. Reopen or
-  link an explicitly reviewed completion issue before treating #2 as complete.
+- **Tracking reconciled:** #2 was reopened on 2026-11-28 after PR #18's accidental
+  closure. Artifact I/O, merge/supersession and comprehensive release consistency
+  acceptance remain unfinished there; the delivered scaffold is preserved.
 - **Decisions still to measure:** deployment workload/SLO targets and eventual
   ANN/backend selection. These do not block D0; no scale certification is claimed.
 - **Parsing/chunking direction:** evaluate reusable deterministic LangChain

@@ -1,6 +1,6 @@
 # D0 checkpoint: document identity and time contracts
 
-Part of #11, **not completion of D0**. Imports live in
+Document/time portion of #11; these primitives alone are **not all of D0**. Imports live in
 `synirmos.core.contracts`, `core.documents`, `core.temporal`, and
 `core.ports.documents`. These modules use only the standard library, Pydantic,
 and existing core values. They do not implement capture, parsing, storage,
@@ -117,6 +117,8 @@ ambiguous substring searches are not original-byte provenance.
 bytes from distinct sources, multi-collection membership, capture retries,
 UTC/horizon rules, content integrity, Unicode/CRLF/repeated-text byte spans,
 chunk/occurrence identity, limits, immutability and JSON round-trips.
+Version-1 document/revision/chunk/occurrence goldens also detect accidental changes
+to the wire representation or derivation rules, including in minimum-version tests.
 `tests/test_architecture.py` checks core imports recursively (including nested
 ports and relative/absolute imports) and imports the new modules in a fresh
 process to detect accidental implementation dependency loading.

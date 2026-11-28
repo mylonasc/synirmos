@@ -19,12 +19,14 @@ scaffold, not all of #2's remaining artifact/merge acceptance.
 
 ## Architectural prerequisites
 
-`notebooks/D0_contracts.ipynb` accompanies the **first increment** of D0/#11:
+`notebooks/D0_contracts.ipynb` accompanies the neutral-contract slice D0/#11:
 qualified document/revision identity, content sharing versus collection/access
 identity, original UTF-8/CRLF byte spans, source validity versus observed/justified
-knowledge time, chunk content versus occurrences, and bounded source pages.
-It is not capture/parsing implementation or completion of D0. See
-`docs/DOCUMENT_CONTRACTS.md` and `docs/epics/EPIC_DECOUPLING.md` for remaining scope.
+knowledge time, chunk content versus occurrences, bounded source pages, trusted
+scope intersection, actual exposure/shared budgets, and retry-stable unapproved
+extraction/assertion values. It is not capture/parsing/storage/agent implementation.
+See `docs/{DOCUMENT,GRAPH_CONTEXT,EXTRACTION}_CONTRACTS.md` for the specifications
+and `docs/epics/EPIC_DECOUPLING.md` for verified progress and later slice ownership.
 
 ## Running
 

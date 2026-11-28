@@ -22,7 +22,7 @@ available on PyPI.
   qualified identities, collection membership, verified byte spans, chunk versus
   occurrence identities, explicit validity/observation/knowledge times, bounded
   document batches and narrow source/content-reader ports. These are additive
-  values/interfaces, not a capture/parser implementation or completion of D0.
+  values/interfaces, not a capture/parser implementation.
 - D0 document/time notebook with automated plain-Python cell execution for
   shipped ONTO-KG notebooks in the full quality gate; installed-wheel smoke
   coverage for the new core values and nested ports.
@@ -32,6 +32,9 @@ available on PyPI.
   separate proposals, retry-stable operations, canonical assertion supports and
   trusted review metadata; real adapters/agents/policy enforcement remain later
   slices. No legacy IDs or dependency floors change.
+- D0 notebook now covers graph scopes, shared exposure budgets and extraction/
+  assertion identity in nine executable cells, with expanded installed-wheel
+  checks and isolated Pydantic 2.8.2 contract compatibility verification.
 
 ### Changed
 

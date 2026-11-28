@@ -67,6 +67,9 @@ predicate strings accept qualified domain IDs/IRIs, not fixed JERE enums.
 `Properties` stores canonical JSON internally and emits fresh JSON objects on
 serialization/access. Nested dictionaries/lists cannot mutate validated records
 or cached identities. Non-objects, non-string keys and nonfinite values reject.
+The v1 neutral payload is explicitly a JSON subset. D1 must not silently stringify
+legacy/native datetime, bytes or tagged property types: preserve the compatibility
+path or introduce an explicit versioned codec/capability decision where needed.
 
 `GraphProfile` describes vocabulary, identity/mapping versions, required/reserved
 properties, indexes and capabilities. Set-valued declarations have deterministic
